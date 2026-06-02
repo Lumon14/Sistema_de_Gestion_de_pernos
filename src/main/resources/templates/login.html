@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - Acceso App</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+        }
+
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-card {
+            max-width: 900px;
+            width: 100%;
+            border-radius: 1rem;
+            box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+            border: none;
+            overflow: hidden;
+        }
+
+        .login-image {
+            background: url('https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?q=80&w=2070&auto=format&fit=crop') center center;
+            background-size: cover;
+            min-height: 400px;
+        }
+
+        .form-control {
+            border-radius: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            border: 1px solid #dee2e6;
+        }
+
+        .form-control:focus {
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+            border-color: #86b7fe;
+            background-color: #fff !important;
+        }
+
+        .btn-login {
+            border-radius: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="login-container px-3 py-5">
+        <div class="card login-card">
+            <div class="row g-0">
+                <!-- Imagen lateral -->
+                <div class="col-md-6 d-none d-md-block login-image">
+                </div>
+                <!-- Formulario -->
+                <div class="col-md-6 p-4 p-md-5 d-flex flex-column justify-content-center bg-white">
+                    <div class="text-center mb-5">
+                        <h1 class="h3 fw-bold text-primary mb-2">PERNOS VEGA</h1>
+                        <p class="text-muted">Inicia sesión en tu cuenta</p>
+                    </div>
+
+                    <form id="loginForm" th:action="@{/login}" method="post">
+                        <div class="mb-4">
+                            <label for="usuario"
+                                class="form-label fw-semibold text-secondary small text-uppercase">Usuario</label>
+                            <input type="text" class="form-control bg-light" id="usuario" name="usuario"
+                                placeholder="Ingresa tu usuario" required autofocus>
+                        </div>
+
+                        <div class="mb-5">
+                            <label for="clave"
+                                class="form-label fw-semibold text-secondary small text-uppercase">Contraseña</label>
+                            <input type="password" class="form-control bg-light" id="clave" name="clave"
+                                placeholder="••••••••" required>
+                        </div>
+
+                        <div class="d-grid gap-3">
+                            <button class="btn btn-primary btn-login shadow-sm" type="submit">Iniciar Sesión</button>
+                            <a th:href="@{/principal}" class="btn btn-light btn-login text-secondary border">Volver al
+                                Inicio</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SweetAlert2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script th:inline="javascript">
+        document.addEventListener('DOMContentLoaded', function () {
+            const loginForm = document.getElementById('loginForm');
+
+            loginForm.addEventListener('submit', function (event) {
+                const username = document.getElementById('usuario').value;
+                const password = document.getElementById('clave').value;
+
+                if (!username || !password) {
+                    event.preventDefault(); // Detiene el envío del formulario
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Campos incompletos',
+                        text: 'Por favor, ingresa tu usuario y contraseña.',
+                        confirmButtonColor: '#0d6efd'
+                    });
+                }
+            });
+
+            /*[# th:if="${error}"]*/
+            const errorMessage = /*[[${error}]]*/ null;
+            if (errorMessage) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de Acceso',
+                    text: errorMessage,
+                    confirmButtonColor: '#dc3545'
+                });
+            }
+            /*[/]*/
+
+            /*[# th:if="${logout}"]*/
+            const logoutMessage = /*[[${logout}]]*/ null;
+            if (logoutMessage) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Sesión Cerrada',
+                    text: logoutMessage,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }
+            /*[/]*/
+        });
+    </script>
+
+</body>
+
+</html>

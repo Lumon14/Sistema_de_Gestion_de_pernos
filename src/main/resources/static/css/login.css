@@ -1,0 +1,223 @@
+body {
+    body {
+        font-family: 'Arial', sans-serif;
+        background-color: #f0f2f5;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+    }
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f0f2f5;
+}
+
+.container {
+    max-width: 900px;
+}
+
+.card {
+    border: none;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+}
+
+.card-header {
+    background-color: #0d6efd;
+    color: white;
+    border-top-left-radius: 1rem;
+    border-top-right-radius: 1rem;
+    font-weight: bold;
+}
+
+.btn-custom {
+    margin: 0.5rem;
+    border-radius: 0.5rem;
+}
+
+.toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+}
+
+.tooltip-container {
+    display: inline-block;
+}
+
+.container-principal {
+    display: flex;
+    gap: 2rem;
+    /* Espacio entre los dos formularios */
+    flex-wrap: wrap;
+    /* Para que se apilen en pantallas pequeñas */
+    justify-content: center;
+}
+
+.login-container,
+.registro-container {
+    width: 100%;
+    max-width: 400px;
+    padding: 2rem;
+    background-color: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: #333;
+    font-size: 1.8rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #555;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+button {
+    width: 100%;
+    padding: 1rem;
+    color: #fff;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.login-btn {
+    background-color: #007bff;
+}
+
+.login-btn:hover {
+    background-color: #0056b3;
+}
+
+.registro-btn {
+    background-color: #28a745;
+}
+
+.registro-btn:hover {
+    background-color: #218838;
+}
+
+.forgot-password {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.forgot-password a {
+    color: #007bff;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.forgot-password a:hover {
+    text-decoration: underline;
+}
+
+.mensaje-container {
+    text-align: center;
+    padding: 0.75rem;
+    margin-bottom: 1.5rem;
+    border-radius: 0.5rem;
+    display: none;
+    /* Oculto por defecto */
+}
+
+.mensaje-exito {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.mensaje-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* ... (El resto del CSS se mantiene igual) */
+
+.enlaces-login {
+    text-align: center;
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    /* Espacio entre los enlaces */
+}
+
+.enlaces-login a {
+    color: #007bff;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.enlaces-login a:hover {
+    text-decoration: underline;
+}
+
+/* El formulario de registro se oculta por defecto */
+.registro-container {
+    display: none;
+    /* ... (resto de los estilos del contenedor) */
+}
+
+@media (max-width: 768px) {
+    .container-principal {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+
+  .footer-section {
+      margin-top: 5rem;
+  }
+  .footer-section .nav-link{
+    color: #ff9c9c;
+}
+  .footer-link,
+  .footer-link:hover,
+  .footer-link:focus {
+      color: rgba(255, 255, 255, .7);
+      transition: color .3s ease;
+  }
+
+  .footer-link:hover,
+  .footer-link:focus {
+      color: #fff;
+  }
+
+  .footer-logo {
+      font-size: 1.5rem;
+      font-weight: bold;
+  }

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Pernos Vega</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+</head>
+<body>
+
+<div class="d-flex">
+    <!-- Sidebar -->
+    <div th:replace="~{sidebar :: sidebar(activeUri='/dashboard')}"></div>
+
+    <!-- Contenido principal -->
+    <div id="main-content" class="main-content w-100">
+
+        <!-- Topbar -->
+        <header class="topbar">
+            <div class="d-flex align-items-center gap-3">
+                <button id="open-sidebar" class="btn btn-sm btn-light d-md-none p-1 px-2">
+                    <i class="bi bi-list fs-5"></i>
+                </button>
+                <h1 class="topbar-title">Dashboard</h1>
+            </div>
+            <div class="topbar-user">
+                <span class="d-none d-sm-inline">Bienvenido, <strong>Admin</strong></span>
+                <div class="topbar-avatar">A</div>
+            </div>
+        </header>
+
+        <!-- Contenido de la página -->
+        <main class="p-4 fade-in-up">
+
+            <!-- Tarjetas de estadísticas -->
+            <div class="row g-3 mb-4">
+
+                <div class="col-sm-6 col-xl-3">
+                    <div class="stat-card stat-blue h-100">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="stat-label">Usuarios</div>
+                                <div class="stat-value" th:text="${totalUsuarios}">0</div>
+                            </div>
+                            <div class="stat-icon"><i class="bi bi-people-fill"></i></div>
+                        </div>
+                        <a th:href="@{/usuarios/listar}" class="stat-link">
+                            Ver todos <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="col-sm-6 col-xl-3">
+                    <div class="stat-card stat-emerald h-100">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="stat-label">Productos</div>
+                                <div class="stat-value" th:text="${totalProductos}">0</div>
+                            </div>
+                            <div class="stat-icon"><i class="bi bi-box-fill"></i></div>
+                        </div>
+                        <a th:href="@{/productos/listar}" class="stat-link">
+                            Ver todos <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="col-sm-6 col-xl-3">
+                    <div class="stat-card stat-cyan h-100">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="stat-label">Categorías</div>
+                                <div class="stat-value" th:text="${totalCategorias}">0</div>
+                            </div>
+                            <div class="stat-icon"><i class="bi bi-tags-fill"></i></div>
+                        </div>
+                        <a th:href="@{/categorias/listar}" class="stat-link">
+                            Ver todas <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="col-sm-6 col-xl-3">
+                    <div class="stat-card stat-amber h-100">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="stat-label">Pedidos Pendientes</div>
+                                <div class="stat-value" th:text="${totalPedidosPendientes}">0</div>
+                            </div>
+                            <div class="stat-icon"><i class="bi bi-clock-history"></i></div>
+                        </div>
+                        <a th:href="@{/pedidos/listar}" class="stat-link">
+                            Gestionar pedidos <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Accesos rápidos -->
+            <div class="row g-3">
+                <div class="col-12">
+                    <div class="card p-4">
+                        <h2 class="h6 fw-bold mb-3 text-secondary text-uppercase" style="font-size:0.72rem; letter-spacing:1px;">
+                            <i class="bi bi-lightning-fill text-warning me-1"></i> Accesos Rápidos
+                        </h2>
+                        <div class="row g-2">
+                            <div class="col-6 col-md-3">
+                                <a th:href="@{/usuarios/listar}" class="d-flex align-items-center gap-2 p-3 rounded-3 text-decoration-none"
+                                   style="background:#eff6ff; color:#1d4ed8; transition:all .2s;"
+                                   onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">
+                                    <i class="bi bi-people-fill fs-5"></i>
+                                    <span class="fw-600 small">Gestionar Usuarios</span>
+                                </a>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <a th:href="@{/productos/listar}" class="d-flex align-items-center gap-2 p-3 rounded-3 text-decoration-none"
+                                   style="background:#f0fdf4; color:#15803d; transition:all .2s;"
+                                   onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">
+                                    <i class="bi bi-box-fill fs-5"></i>
+                                    <span class="fw-600 small">Gestionar Productos</span>
+                                </a>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <a th:href="@{/categorias/listar}" class="d-flex align-items-center gap-2 p-3 rounded-3 text-decoration-none"
+                                   style="background:#ecfeff; color:#0e7490; transition:all .2s;"
+                                   onmouseover="this.style.background='#cffafe'" onmouseout="this.style.background='#ecfeff'">
+                                    <i class="bi bi-tags-fill fs-5"></i>
+                                    <span class="fw-600 small">Gestionar Categorías</span>
+                                </a>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <a th:href="@{/perfiles/listar}" class="d-flex align-items-center gap-2 p-3 rounded-3 text-decoration-none"
+                                   style="background:#faf5ff; color:#7c3aed; transition:all .2s;"
+                                   onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='#faf5ff'">
+                                    <i class="bi bi-person-vcard-fill fs-5"></i>
+                                    <span class="fw-600 small">Gestionar Perfiles</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+<script th:src="@{/js/main.js}"></script>
+
+</body>
+</html>

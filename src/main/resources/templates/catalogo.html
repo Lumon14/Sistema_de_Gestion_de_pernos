@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.w3.org/1999/xhtml">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catálogo - PERNOS VEGA</title>
+    <!-- Metatags CSRF para peticiones Fetch/AJAX -->
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+    <link rel="stylesheet" th:href="@{/css/diseño.css}">
+    <link rel="stylesheet" th:href="@{/css/catalogo.css}">
+    <!-- swiper-->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper/swiper-bundle.min.css">
+    <!-- Incluye el CSS de Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        xintegrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <!-- Iconos de Bootstrap -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</head>
+
+<body>
+
+    <div class="header-section shadow-sm sticky-top bg-white">
+        <header>
+            <div class="top-bar bg-dark text-white py-2">
+                <div class="container d-flex justify-content-between align-items-center">
+                    <div class="contact-info small">
+                        <i class="bi bi-telephone-fill"></i> +51 968 871 577
+                    </div>
+                    <div class="social-icons">
+                        <a href="#" class="text-white me-3"><i class="bi bi-whatsapp"></i></a>
+                        <a href="#" class="text-white me-3"><i class="bi bi-facebook"></i></a>
+                        <a href="#" class="text-white me-3"><i class="bi bi-instagram"></i></a>
+                        <a href="#" class="text-white"><i class="bi bi-globe"></i></a>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm p-0">
+                <div class="container">
+                    <a class="navbar-brand py-3" href="/">
+                        <strong class="d-block h4 mb-0">PERNOS VEGA</strong>
+                    </a>
+
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+
+                    <div class="collapse navbar-collapse" id="navbarNav">
+                        <ul class="navbar-nav mx-auto">
+                            <li class="nav-item">
+                                <a class="nav-link px-4 py-4" href="/">INICIO</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle px-3 py-4" href="/nosotros" id="navbarDropdown" role="button"
+                                    data-bs-toggle="dropdown">¿QUIENES SOMOS?
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                    <li><a class="dropdown-item" href="/nosotros#mision">Misión</a></li>
+                                    <li><a class="dropdown-item" href="/nosotros#vision">Visión</a></li>
+                                    <li><a class="dropdown-item" href="/nosotros#valores">Valores</a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item"><a class="nav-link px-3 py-4 active-custom"
+                                    href="/catalogo">CATÁLOGO</a>
+                            </li>
+                            <li class="nav-item"><a class="nav-link px-3 py-4" href="#">CONTACTANOS</a></li>
+                            <li class="nav-item"><a class="nav-link px-3 py-4" href="/login">INGRESAR</a></li>
+                            <li class="nav-item">
+                                <a class="nav-link px-3 py-4 position-relative" href="#" id="cartToggleBtn" style="cursor: pointer;">
+                                    <i class="bi bi-cart3 fs-5"></i>
+                                    <span class="position-absolute badge rounded-pill bg-warning text-dark" id="cartBadgeCount" style="top: 15px; right: 2px; font-size: 0.65rem; display: none;">0</span>
+                                </a>
+                            </li>
+                        </ul>
+
+                        <form class="d-flex position-relative">
+                            <input class="form-control rounded-pill pe-5" type="search" placeholder="Buscar productos">
+                            <button class="btn position-absolute end-0 border-0" type="submit">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </nav>
+        </header>
+    </div>
+
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="bg-light py-3">
+        <div class="container">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none">Inicio</a></li>
+                <li class="breadcrumb-item active">Productos</li>
+            </ol>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-fluid py-5">
+        <div class="container">
+            <h1 class="mb-5">Productos</h1>
+
+            <div class="row">
+                <!-- Sidebar Filtros -->
+                <div class="col-lg-3 mb-4">
+                    <div class="filters-section">
+                        <!-- Disponibilidad -->
+                        <div class="filter-group">
+                            <h5 class="filter-title">
+                                Disponibilidad
+                                <span class="toggle-filter" data-target="availability">−</span>
+                            </h5>
+                            <div class="filter-content" id="availability">
+                                <div class="form-check">
+                                    <input class="form-check-input availability-filter" type="checkbox" value="true"
+                                        id="inStock">
+                                    <label class="form-check-label" for="inStock">En existencia</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input availability-filter" type="checkbox" value="false"
+                                        id="outOfStock">
+                                    <label class="form-check-label" for="outOfStock">Agotado</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Precio -->
+                        <div class="filter-group">
+                            <h5 class="filter-title">
+                                Precio
+                                <span class="toggle-filter" data-target="price">−</span>
+                            </h5>
+                            <div class="filter-content" id="price">
+                                <div class="mb-3">
+                                    <label for="priceRange" class="form-label">Rango de precio</label>
+                                    <input type="range" class="form-range" id="priceRange" min="0" max="1000"
+                                        value="1000">
+                                    <small class="text-muted">S/. 0 - S/. <span id="priceValue">1000</span></small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Categoría -->
+                        <div class="filter-group">
+                            <h5 class="filter-title">
+                                Categoría
+                                <span class="toggle-filter" data-target="category">−</span>
+                            </h5>
+                            <div class="filter-content" id="category">
+                                <div class="form-check">
+                                    <input class="form-check-input category-filter" type="checkbox" value="all" id="catAll" checked>
+                                    <label class="form-check-label" for="catAll">Todas</label>
+                                </div>
+                                <div id="dynamicCategories">
+                                    <!-- Categorías cargadas dinámicamente -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Products Grid -->
+                <div class="col-lg-9">
+                    <!-- Top Bar -->
+                    <div class="products-top-bar mb-4">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center gap-3">
+                                    <label for="sortBy" class="mb-0 fw-bold">Ordenar por</label>
+                                    <select class="form-select form-select-sm" id="sortBy" style="width: auto;">
+                                        <option value="name-asc">Alfabéticamente, A-Z</option>
+                                        <option value="name-desc">Alfabéticamente, Z-A</option>
+                                        <option value="price-asc">Precio, menor a mayor</option>
+                                        <option value="price-desc">Precio, mayor a menor</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <label for="viewToggle" class="mb-0 fw-bold me-2">Ver como</label>
+                                <button class="btn btn-sm btn-outline-secondary active" id="gridView"
+                                    title="Vista grid">
+                                    <i class="bi bi-grid-3x3-gap"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" id="listView" title="Vista lista">
+                                    <i class="bi bi-list-ul"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Products Container -->
+                    <div class="products-container" id="productsGrid">
+                        <!-- Los productos se cargarán aquí con JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Detalle Producto -->
+    <div class="modal fade" id="productModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <img id="modalImage" src="" alt="Producto" class="img-fluid rounded">
+                        </div>
+                        <div class="col-md-6">
+                            <h2 id="modalTitle" class="mb-2"></h2>
+                            <p id="modalProvider" class="text-muted mb-3"></p>
+
+                            <div class="mb-3">
+                                <span class="badge bg-success" id="modalStock"></span>
+                            </div>
+
+                            <div class="price-section mb-4">
+                                <span class="original-price" id="modalOriginalPrice">S/. 0.00</span>
+                                <h3 class="current-price" id="modalPrice">S/. 0.00</h3>
+                            </div>
+
+                            <p id="modalDescription" class="text-muted mb-4"></p>
+
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Cantidad</label>
+                                <div class="quantity-selector">
+                                    <button class="qty-btn" id="decreaseQty">−</button>
+                                    <input type="number" id="modalQuantity" min="1" value="1" class="qty-input">
+                                    <button class="qty-btn" id="increaseQty">+</button>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-warning btn-lg w-100 fw-bold" id="addToCartBtn">
+                                <i class="bi bi-cart-plus"></i> Añadir al carrito
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Carrito de Compras -->
+    <div class="modal fade" id="cartModal" tabindex="-1" aria-labelledby="cartModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title" id="cartModalLabel"><i class="bi bi-cart3 me-2"></i> Mi Carrito de Compras</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    
+                    <!-- PASO 1: Listado de Items en Carrito -->
+                    <div id="cartStep1">
+                        <div class="table-responsive">
+                            <table class="table align-middle" id="tableCartItems">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th class="text-center" style="width: 120px;">Cantidad</th>
+                                        <th class="text-end">Precio</th>
+                                        <th class="text-end">Subtotal</th>
+                                        <th class="text-center" style="width: 50px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cartItemsList">
+                                    <!-- Dinámico por JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center mt-4 p-3 bg-light rounded">
+                            <h4 class="mb-0 fw-bold">Total del Pedido:</h4>
+                            <h3 class="mb-0 text-primary fw-bold" id="cartTotalAmount">S/. 0.00</h3>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                                <i class="bi bi-arrow-left"></i> Seguir Comprando
+                            </button>
+                            <button type="button" class="btn btn-warning fw-bold px-4" id="btnGoToStep2">
+                                Continuar con el Pedido <i class="bi bi-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- PASO 2: Datos de Contacto/Cliente (Recojo en Tienda) -->
+                    <div id="cartStep2" class="d-none">
+                        <div class="alert alert-info py-2" role="alert">
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                            Ingresa tus datos para registrar el pedido. El pago se coordinará al recoger los productos.
+                        </div>
+                        
+                        <form id="formCheckout" class="needs-validation" novalidate>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="clienteDniRuc" class="form-label fw-bold">DNI o RUC <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="clienteDniRuc" required maxlength="11" minlength="8" placeholder="Ej: 71077968">
+                                    <div class="invalid-feedback">Por favor, ingrese un DNI (8 dígitos) o RUC (11 dígitos) válido.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="clienteNombre" class="form-label fw-bold">Nombre Completo o Razón Social <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="clienteNombre" required placeholder="Ej: Luz de Belén">
+                                    <div class="invalid-feedback">Este campo es obligatorio.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="clienteTelefono" class="form-label fw-bold">Teléfono / Celular <span class="text-danger">*</span></label>
+                                    <input type="tel" class="form-control" id="clienteTelefono" required placeholder="Ej: 987654321">
+                                    <div class="invalid-feedback">Por favor, ingrese su teléfono.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="clienteEmail" class="form-label fw-bold">Correo Electrónico <span class="text-muted">(Opcional)</span></label>
+                                    <input type="email" class="form-control" id="clienteEmail" placeholder="Ej: cliente@correo.com">
+                                </div>
+                            </div>
+                        </form>
+
+                        <div class="d-flex justify-content-between mt-5 pt-3 border-top">
+                            <button type="button" class="btn btn-outline-secondary" id="btnBackToStep1">
+                                <i class="bi bi-arrow-left"></i> Volver al Carrito
+                            </button>
+                            <button type="button" class="btn btn-success fw-bold px-4" id="btnConfirmOrder">
+                                <i class="bi bi-check2-circle"></i> Confirmar Pedido
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notificación Toast -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11;">
+        <div id="toast" class="toast" role="alert">
+            <div class="toast-body">
+                <i class="bi bi-check-circle-fill text-success me-2"></i>
+                <span id="toastMessage"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer-container">
+        <div class="footer-content">
+            <!-- Logo/Título -->
+            <h2 class="footer-logo">PernosVega.com</h2>
+
+            <!-- Navegación -->
+            <ul class="footer-nav">
+                <li><a href="/">INICIO</a></li>
+                <li><a href="/catalogo">CATÁLOGO</a></li>
+                <li><a href="#">CONTACTANOS</a></li>
+                <li><a href="/login">INGRESAR</a></li>
+
+            </ul>
+
+            <!-- Redes Sociales -->
+            <div class="footer-socials">
+                <a href="#" class="social-icon"><i class="bi bi-whatsapp"></i></a>
+                <a href="#" class="social-icon"><i class="bi bi-facebook"></i></a>
+                <a href="#" class="social-icon"><i class="bi bi-instagram"></i></a>
+            </div>
+
+            <!-- Copyright -->
+            <p class="footer-copy">
+                Copyright ©2026 Derechos reservados | Desarrollado por <span class="heart">❤</span> by <a
+                    href="#">PernosVega.com</a>
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script th:src="@{/js/catalogo.js}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+        xintegrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper/swiper-bundle.min.js"></script>
+    <script th:src="@{/js/script.js}"></script>
+</body>
+
+</html>
