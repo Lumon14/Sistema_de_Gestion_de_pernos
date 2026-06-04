@@ -33,10 +33,10 @@ public class Venta {
     private Double total;
 
     @Column(name = "tipo_comprobante", nullable = false, length = 20)
-    private String tipoComprobante = "BOLETA";
+    private String tipoComprobante = "NOTA DE VENTA";
 
     @Column(nullable = false, length = 10)
-    private String serie = "B001";
+    private String serie = "NV001";
 
     @Column(name = "numero_comprobante", nullable = false, length = 20)
     private String numeroComprobante;

@@ -1,6 +1,7 @@
 /**
  * Script para la gestión de ventas y notas de venta
  * Archivo: src/main/resources/static/js/ventas.js
+ * Requiere: jsPDF (cargado dinámicamente si no existe)
  */
 
 $(document).ready(function() {
@@ -9,12 +10,15 @@ $(document).ready(function() {
     let itemsVenta = [];
     let ventaModal;
     let verVentaModal;
+    let emailModal;
     let selectedClienteId = null;
+    let currentVentaForEmail = null; // Venta activa para el modal de correo
 
     // Inicializar Componentes
     initializeDataTable();
-    ventaModal = new bootstrap.Modal(document.getElementById('ventaModal'));
+    ventaModal  = new bootstrap.Modal(document.getElementById('ventaModal'));
     verVentaModal = new bootstrap.Modal(document.getElementById('verVentaModal'));
+    emailModal  = new bootstrap.Modal(document.getElementById('emailModal'));
     
     // Inicializar Select2
     $('.select2-producto').select2({
@@ -150,6 +154,86 @@ $(document).ready(function() {
         });
 
         $('#btnCompartirWhatsApp').on('click', compartirPorWhatsApp);
+
+        // Botón descargar PDF
+        $('#btnDescargarPDF').on('click', function() {
+            const venta = $('#verVentaModal').data('venta');
+            if (venta) generarPDF(venta, false);
+        });
+
+        // Botón abrir modal de correo
+        $('#btnEnviarCorreo').on('click', function() {
+            const venta = $('#verVentaModal').data('venta');
+            if (!venta) return;
+            currentVentaForEmail = venta;
+            const correo = venta.cliente && venta.cliente.email ? venta.cliente.email : null;
+            $('#emailModalCorreoTexto').text(correo || 'Sin correo registrado');
+            $('#emailActualizarForm').addClass('d-none');
+            $('#nuevoCorreoInput').val('');
+            emailModal.show();
+        });
+
+        // Botón "Sí, Enviar" → abre Gmail con el PDF adjunto codificado
+        $('#btnSiEnviar').on('click', function() {
+            if (!currentVentaForEmail) return;
+            const correo = currentVentaForEmail.cliente && currentVentaForEmail.cliente.email
+                ? currentVentaForEmail.cliente.email : '';
+            if (!correo) {
+                Swal.fire('Sin correo', 'El cliente no tiene correo registrado. Actualícelo primero.', 'warning');
+                return;
+            }
+            abrirGmailConPDF(currentVentaForEmail, correo);
+        });
+
+        // Botón "Actualizar Correo"
+        $('#btnActualizarCorreo').on('click', function() {
+            const form = $('#emailActualizarForm');
+            if (form.hasClass('d-none')) {
+                form.removeClass('d-none');
+                $('#nuevoCorreoInput').val(
+                    currentVentaForEmail && currentVentaForEmail.cliente && currentVentaForEmail.cliente.email
+                        ? currentVentaForEmail.cliente.email : ''
+                );
+            } else {
+                form.addClass('d-none');
+            }
+        });
+
+        // Cancelar edición de correo
+        $('#btnCancelarActualizarCorreo').on('click', function() {
+            $('#emailActualizarForm').addClass('d-none');
+            $('#nuevoCorreoInput').val('');
+        });
+
+        // Guardar nuevo correo y actualizar cliente
+        $('#btnGuardarNuevoCorreo').on('click', function() {
+            const nuevoCorreo = $('#nuevoCorreoInput').val().trim();
+            if (!nuevoCorreo || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(nuevoCorreo)) {
+                Swal.fire('Error', 'Ingrese un correo válido', 'warning');
+                return;
+            }
+            if (!currentVentaForEmail || !currentVentaForEmail.cliente) return;
+            const clienteId = currentVentaForEmail.cliente.id;
+
+            fetch(`/clientes/api/${clienteId}/email`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...getCsrfHeaders() },
+                body: JSON.stringify({ email: nuevoCorreo })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    currentVentaForEmail.cliente.email = nuevoCorreo;
+                    $('#emailModalCorreoTexto').text(nuevoCorreo);
+                    $('#emailActualizarForm').addClass('d-none');
+                    Swal.fire({ icon: 'success', title: '¡Correo actualizado!', timer: 1500, showConfirmButton: false });
+                    dataTable.ajax.reload(false);
+                } else {
+                    Swal.fire('Error', data.message || 'No se pudo actualizar el correo', 'error');
+                }
+            })
+            .catch(() => Swal.fire('Error', 'Error de conexión', 'error'));
+        });
     }
 
     /**
@@ -359,7 +443,7 @@ $(document).ready(function() {
                     `;
 
                     $('#verVentaContent').html(html);
-                    $('#verVentaModal').data('venta', venta); // Guardar para WhatsApp
+                    $('#verVentaModal').data('venta', venta); // Guardar para WhatsApp, PDF y Correo
                     verVentaModal.show();
                 }
             })
@@ -429,7 +513,197 @@ $(document).ready(function() {
         mensaje += `%0A¡Gracias por su preferencia!`;
 
         const url = `https://wa.me/51968871577?text=${mensaje}`;
+        // Nota: WhatsApp Web no soporta adjuntos directos por URL
         window.open(url, '_blank');
+    }
+
+    /**
+     * Genera un PDF de la Nota de Venta usando jsPDF
+     * @param {Object} venta - datos de la venta
+     * @param {Boolean} returnBlob - si true, retorna la promesa del Blob en lugar de descargar
+     */
+    function generarPDF(venta, returnBlob = false) {
+        // Cargar jsPDF dinámicamente si no está disponible
+        function crearPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+            const margen = 15;
+            let y = 20;
+
+            // Encabezado
+            doc.setFillColor(13, 110, 253);
+            doc.rect(0, 0, 210, 40, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(20);
+            doc.setFont('helvetica', 'bold');
+            doc.text('PERNOS VEGA', 105, 15, { align: 'center' });
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Ferretería y Suministros Industriales', 105, 23, { align: 'center' });
+            doc.text('Tel: +51 968 871 577', 105, 30, { align: 'center' });
+
+            y = 50;
+            doc.setTextColor(0, 0, 0);
+
+            // Título comprobante
+            const comprobante = (venta.tipoComprobante && venta.serie && venta.numeroComprobante)
+                ? `${venta.tipoComprobante} ${venta.serie}-${venta.numeroComprobante}`
+                : `NOTA DE VENTA #${venta.id}`;
+
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text(comprobante, 105, y, { align: 'center' });
+            y += 10;
+
+            // Datos del cliente y fecha
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            const clienteNombre = venta.cliente ? venta.cliente.nombre : 'General';
+            const clienteDni   = venta.cliente ? (venta.cliente.dniRuc || '-') : '-';
+            const clienteEmail = venta.cliente ? (venta.cliente.email || '-') : '-';
+            const fecha = new Date(venta.fecha).toLocaleString('es-PE');
+            const vendedor = venta.usuario ? venta.usuario.nombre : '-';
+
+            doc.setFillColor(245, 245, 245);
+            doc.rect(margen, y, 180, 28, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.text('Cliente:', margen + 3, y + 7);
+            doc.text('DNI/RUC:', margen + 3, y + 13);
+            doc.text('Correo:', margen + 3, y + 19);
+            doc.text('Fecha:', margen + 95, y + 7);
+            doc.text('Vendedor:', margen + 95, y + 13);
+            doc.setFont('helvetica', 'normal');
+            doc.text(clienteNombre, margen + 22, y + 7);
+            doc.text(clienteDni,    margen + 22, y + 13);
+            doc.text(clienteEmail,  margen + 22, y + 19);
+            doc.text(fecha,         margen + 112, y + 7);
+            doc.text(vendedor,      margen + 118, y + 13);
+            y += 35;
+
+            // Cabecera tabla
+            doc.setFillColor(13, 110, 253);
+            doc.rect(margen, y, 180, 8, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.text('Producto',       margen + 2, y + 5.5);
+            doc.text('Cant.',          margen + 100, y + 5.5, { align: 'center' });
+            doc.text('Precio Unit.',   margen + 130, y + 5.5, { align: 'center' });
+            doc.text('Subtotal',       margen + 175, y + 5.5, { align: 'right' });
+            y += 8;
+
+            // Filas de productos
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'normal');
+            venta.detalles.forEach((d, i) => {
+                const bgColor = i % 2 === 0 ? [255, 255, 255] : [248, 249, 250];
+                doc.setFillColor(...bgColor);
+                doc.rect(margen, y, 180, 7, 'F');
+                const desc = d.descuento || 0;
+                const sub  = d.subtotal !== null && d.subtotal !== undefined
+                    ? d.subtotal : (d.cantidad * d.precioVenta - desc);
+                doc.text(d.producto.nombre.substring(0, 50), margen + 2, y + 5);
+                doc.text(String(d.cantidad),                  margen + 100, y + 5, { align: 'center' });
+                doc.text(`S/. ${d.precioVenta.toFixed(2)}`,  margen + 130, y + 5, { align: 'center' });
+                doc.text(`S/. ${sub.toFixed(2)}`,            margen + 175, y + 5, { align: 'right' });
+                y += 7;
+            });
+
+            // Totales
+            const subtotalVenta = venta.subtotal != null ? venta.subtotal : (venta.total / 1.18);
+            const igvVenta      = venta.igv != null ? venta.igv : (venta.total - subtotalVenta);
+            y += 4;
+            doc.setDrawColor(220, 220, 220);
+            doc.line(margen, y, margen + 180, y);
+            y += 5;
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Subtotal:', margen + 130, y, { align: 'right' });
+            doc.text(`S/. ${subtotalVenta.toFixed(2)}`, margen + 178, y, { align: 'right' });
+            y += 6;
+            doc.text('IGV (18%):', margen + 130, y, { align: 'right' });
+            doc.text(`S/. ${igvVenta.toFixed(2)}`, margen + 178, y, { align: 'right' });
+            y += 7;
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.setFillColor(13, 110, 253);
+            doc.rect(margen + 100, y - 3, 80, 10, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.text('TOTAL:', margen + 130, y + 4, { align: 'right' });
+            doc.text(`S/. ${venta.total.toFixed(2)}`, margen + 178, y + 4, { align: 'right' });
+
+            // Pie
+            doc.setTextColor(150, 150, 150);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'italic');
+            doc.text('¡Gracias por su preferencia! — Pernos Vega', 105, 285, { align: 'center' });
+
+            return doc;
+        }
+
+        function ejecutar() {
+            const doc = crearPDF();
+            const nombreArchivo = `NotaVenta_${venta.id}_${venta.serie || 'NV'}-${venta.numeroComprobante || venta.id}.pdf`;
+            if (returnBlob) {
+                return Promise.resolve({ blob: doc.output('blob'), nombre: nombreArchivo });
+            } else {
+                doc.save(nombreArchivo);
+                return Promise.resolve(null);
+            }
+        }
+
+        if (window.jspdf && window.jspdf.jsPDF) {
+            return ejecutar();
+        } else {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+                script.onload = () => resolve(ejecutar());
+                script.onerror = () => reject(new Error('No se pudo cargar jsPDF'));
+                document.head.appendChild(script);
+            }).then(p => p);
+        }
+    }
+
+    /**
+     * Abre Gmail con la Nota de Venta como PDF adjunto (codificado base64 en mailto)
+     * Nota: mailto no soporta adjuntos, por lo que abrimos Gmail con asunto y cuerpo
+     * y descargamos el PDF para que el usuario lo adjunte manualmente.
+     */
+    function abrirGmailConPDF(venta, correo) {
+        generarPDF(venta, false); // Descarga el PDF automáticamente
+
+        const comprobante = (venta.tipoComprobante && venta.serie && venta.numeroComprobante)
+            ? `${venta.tipoComprobante} ${venta.serie}-${venta.numeroComprobante}`
+            : `Nota de Venta #${venta.id}`;
+        const clienteNombre = venta.cliente ? venta.cliente.nombre : 'Cliente';
+        const fecha = new Date(venta.fecha).toLocaleDateString('es-PE');
+
+        const asunto = encodeURIComponent(`${comprobante} - Pernos Vega`);
+        const cuerpo = encodeURIComponent(
+            `Estimado/a ${clienteNombre},\n\n` +
+            `Adjuntamos su ${comprobante} del ${fecha}.\n\n` +
+            `Detalle de su compra:\n` +
+            venta.detalles.map(d => {
+                const sub = d.subtotal != null ? d.subtotal : (d.cantidad * d.precioVenta - (d.descuento || 0));
+                return `  • ${d.cantidad} x ${d.producto.nombre} — S/. ${sub.toFixed(2)}`;
+            }).join('\n') +
+            `\n\nTOTAL: S/. ${venta.total.toFixed(2)}` +
+            `\n\nEl PDF fue descargado en su equipo. Por favor adjúntelo a este correo antes de enviarlo.` +
+            `\n\nGracias por su preferencia.\nPernos Vega — +51 968 871 577`
+        );
+
+        // Abrir Gmail compose
+        const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(correo)}&su=${asunto}&body=${cuerpo}`;
+        window.open(gmailUrl, '_blank');
+
+        emailModal.hide();
+        Swal.fire({
+            icon: 'info',
+            title: 'PDF descargado',
+            text: 'El PDF fue descargado automáticamente. Adjúntalo al correo de Gmail que se abrió.',
+            confirmButtonText: 'Entendido'
+        });
     }
 
     /**

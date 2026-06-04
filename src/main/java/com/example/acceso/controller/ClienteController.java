@@ -82,4 +82,22 @@ public class ClienteController {
             return ResponseEntity.status(500).body(Map.of("success", false, "message", e.getMessage()));
         }
     }
+
+    @PutMapping("/api/{id}/email")
+    @ResponseBody
+    public ResponseEntity<?> actualizarEmail(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        try {
+            String nuevoEmail = body.get("email");
+            if (nuevoEmail == null || nuevoEmail.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "El correo no puede estar vacío"));
+            }
+            Cliente cliente = clienteService.obtenerPorId(id)
+                .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+            cliente.setEmail(nuevoEmail);
+            clienteService.guardar(cliente);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Correo actualizado correctamente"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
 }

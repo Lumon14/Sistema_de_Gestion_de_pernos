@@ -41,8 +41,22 @@
             color: white;
             border: none;
         }
-        .btn-whatsapp:hover {
-            background-color: #128c7e;
+        .btn-pdf {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+        }
+        .btn-pdf:hover {
+            background-color: #b02a37;
+            color: white;
+        }
+        .btn-email {
+            background-color: #6f42c1;
+            color: white;
+            border: none;
+        }
+        .btn-email:hover {
+            background-color: #59359a;
             color: white;
         }
     </style>
@@ -233,11 +247,69 @@
                 <div class="modal-body" id="verVentaContent">
                     <!-- Contenido dinámico -->
                 </div>
-                <div class="modal-footer border-0">
+                <div class="modal-footer border-0 flex-wrap gap-2">
                     <button type="button" class="btn btn-whatsapp" id="btnCompartirWhatsApp">
                         <i class="bi bi-whatsapp"></i> Compartir Pedido
                     </button>
+                    <button type="button" class="btn btn-pdf" id="btnDescargarPDF">
+                        <i class="bi bi-file-earmark-pdf-fill"></i> Descargar PDF
+                    </button>
+                    <button type="button" class="btn btn-email" id="btnEnviarCorreo">
+                        <i class="bi bi-envelope-fill"></i> Enviar por Correo
+                    </button>
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Enviar Correo -->
+    <div class="modal fade" id="emailModal" tabindex="-1" aria-labelledby="emailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header" style="background: linear-gradient(135deg, #6f42c1, #4c2c8d); color: white;">
+                    <h5 class="modal-title" id="emailModalLabel">
+                        <i class="bi bi-envelope-fill me-2"></i>Enviar Nota de Venta
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="text-center mb-3">
+                        <i class="bi bi-envelope-check-fill text-purple" style="font-size: 2.5rem; color: #6f42c1;"></i>
+                    </div>
+                    <p class="text-center mb-1 fw-semibold fs-6">¿Desea enviar la Nota de Venta a este correo?</p>
+                    <div class="alert alert-light border text-center py-2 mt-2" id="emailModalCorreoDisplay">
+                        <i class="bi bi-person-circle me-1 text-muted"></i>
+                        <span id="emailModalCorreoTexto" class="fw-bold text-dark">—</span>
+                    </div>
+                    <div id="emailActualizarForm" class="d-none mt-3">
+                        <label class="form-label small fw-bold">Nuevo correo electrónico</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                            <input type="email" class="form-control" id="nuevoCorreoInput" placeholder="nuevo@correo.com">
+                        </div>
+                        <div class="d-flex gap-2 mt-2">
+                            <button type="button" class="btn btn-success btn-sm w-100" id="btnGuardarNuevoCorreo">
+                                <i class="bi bi-check-lg"></i> Guardar y continuar
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnCancelarActualizarCorreo">
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between flex-wrap gap-2">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="btnEmailCancelar">
+                        <i class="bi bi-x-lg"></i> Cancelar
+                    </button>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-warning" id="btnActualizarCorreo">
+                            <i class="bi bi-pencil-fill"></i> Actualizar Correo
+                        </button>
+                        <button type="button" class="btn btn-primary" id="btnSiEnviar">
+                            <i class="bi bi-send-fill"></i> Sí, Enviar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

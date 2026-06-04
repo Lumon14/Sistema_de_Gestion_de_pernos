@@ -56,8 +56,8 @@ public class VentaService {
             venta.setTipoComprobante("FACTURA");
             venta.setSerie("F001");
         } else {
-            venta.setTipoComprobante("BOLETA");
-            venta.setSerie("B001");
+            venta.setTipoComprobante("NOTA DE VENTA");
+            venta.setSerie("NV001");
         }
         long nextNum = ventaRepository.count() + 1;
         venta.setNumeroComprobante(String.format("%08d", nextNum));
