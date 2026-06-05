@@ -1,7 +1,6 @@
 package com.example.acceso.service;
 
 import com.example.acceso.model.*;
-import com.example.acceso.repository.ClienteRepository;
 import com.example.acceso.repository.PedidoRepository;
 import com.example.acceso.repository.ProductoRepository;
 import org.springframework.stereotype.Service;
@@ -9,22 +8,26 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
 public class PedidoService {
 
     private final PedidoRepository pedidoRepository;
-    private final ClienteRepository clienteRepository;
+    private final ClienteService clienteService;
+    private final ConsultaService consultaService;
     private final ProductoRepository productoRepository;
     private final VentaService ventaService;
 
     public PedidoService(PedidoRepository pedidoRepository,
-                         ClienteRepository clienteRepository,
+                         ClienteService clienteService,
+                         ConsultaService consultaService,
                          ProductoRepository productoRepository,
                          VentaService ventaService) {
         this.pedidoRepository = pedidoRepository;
-        this.clienteRepository = clienteRepository;
+        this.clienteService = clienteService;
+        this.consultaService = consultaService;
         this.productoRepository = productoRepository;
         this.ventaService = ventaService;
     }
@@ -45,29 +48,29 @@ public class PedidoService {
         return pedidoRepository.findById(id);
     }
 
+    public static class ResultadoPedido {
+        private final Pedido pedido;
+        private final String mensajeCliente;
+
+        public ResultadoPedido(Pedido pedido, String mensajeCliente) {
+            this.pedido = pedido;
+            this.mensajeCliente = mensajeCliente;
+        }
+
+        public Pedido getPedido() {
+            return pedido;
+        }
+
+        public String getMensajeCliente() {
+            return mensajeCliente;
+        }
+    }
+
     @Transactional
-    public Pedido registrarPedido(Pedido pedido, Cliente clienteInfo) {
-        // 1. Validar y asociar Cliente
-        Cliente cliente = clienteRepository.findByDniRuc(clienteInfo.getDniRuc())
-                .orElseGet(() -> {
-                    // Si no existe, crear un nuevo cliente
-                    clienteInfo.setEstado(1); // Activo por defecto
-                    return clienteRepository.save(clienteInfo);
-                });
-        
-        // Si el cliente ya existe pero se enviaron datos actualizados, actualizarlos opcionalmente
-        if (clienteInfo.getNombre() != null && !clienteInfo.getNombre().isBlank()) {
-            cliente.setNombre(clienteInfo.getNombre());
-        }
-        if (clienteInfo.getTelefono() != null && !clienteInfo.getTelefono().isBlank()) {
-            cliente.setTelefono(clienteInfo.getTelefono());
-        }
-        if (clienteInfo.getEmail() != null && !clienteInfo.getEmail().isBlank()) {
-            cliente.setEmail(clienteInfo.getEmail());
-        }
-        clienteRepository.save(cliente);
-        
-        pedido.setCliente(cliente);
+    public ResultadoPedido registrarPedido(Pedido pedido, Cliente clienteInfo) {
+        enriquecerClienteDesdeConsultaExterna(clienteInfo);
+        ClienteService.ResultadoCliente resultadoCliente = clienteService.buscarOCrear(clienteInfo);
+        pedido.setCliente(resultadoCliente.getCliente());
         pedido.setEstado("PENDIENTE");
 
         // 2. Procesar detalles de pedido y calcular montos
@@ -93,7 +96,41 @@ public class PedidoService {
         pedido.setDetalles(detallesProcesados);
         pedido.setTotal(Math.round(total * 100.0) / 100.0);
 
-        return pedidoRepository.save(pedido);
+        Pedido guardado = pedidoRepository.save(pedido);
+        String mensajeCliente = construirMensajeCliente(resultadoCliente);
+        return new ResultadoPedido(guardado, mensajeCliente);
+    }
+
+    private String construirMensajeCliente(ClienteService.ResultadoCliente resultadoCliente) {
+        if (resultadoCliente.isCreado()) {
+            return "El cliente fue registrado automáticamente en el sistema.";
+        }
+        if (resultadoCliente.isActualizado()) {
+            return "Los datos del cliente existente fueron actualizados.";
+        }
+        return "Se utilizó el registro del cliente existente.";
+    }
+
+    private void enriquecerClienteDesdeConsultaExterna(Cliente clienteInfo) {
+        if (clienteInfo == null || clienteInfo.getDniRuc() == null || clienteInfo.getDniRuc().isBlank()) {
+            return;
+        }
+
+        boolean nombreVacio = clienteInfo.getNombre() == null || clienteInfo.getNombre().isBlank();
+        boolean nombreSimulado = consultaService.esNombreSimulado(clienteInfo.getNombre());
+        if (!nombreVacio && !nombreSimulado) {
+            return;
+        }
+
+        Map<String, Object> consulta = consultaService.consultarDocumento(clienteInfo.getDniRuc());
+        if (Boolean.TRUE.equals(consulta.get("success"))) {
+            if (consulta.get("nombre") != null) {
+                clienteInfo.setNombre(consulta.get("nombre").toString());
+            }
+            if (clienteInfo.getDireccion() == null && consulta.get("direccion") != null) {
+                clienteInfo.setDireccion(consulta.get("direccion").toString());
+            }
+        }
     }
 
     @Transactional

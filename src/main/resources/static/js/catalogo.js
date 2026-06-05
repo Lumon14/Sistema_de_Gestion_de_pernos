@@ -27,18 +27,26 @@ document.addEventListener('DOMContentLoaded', () => {
 // ===== CARGAR PRODUCTOS DE LA API =====
 async function loadProductsFromAPI() {
     try {
-        const response = await fetch('/productos/api/listar');
+        const response = await fetch('/productos/api/catalogo');
         if (!response.ok) throw new Error('Error al cargar productos');
 
         const result = await response.json();
-        productsData = result.data.map(p => ({
-            ...p,
-            precio: p.precioVenta,
-            precioOriginal: p.precioVenta,
-            categoria: p.categoria ? p.categoria.nombre : 'Sin categoría',
-            proveedor: p.proveedor ? p.proveedor.nombre : 'Sin proveedor',
-            imagen: p.imagen || '/images/products/placeholder.jpg'
-        }));
+        if (!result.success || !Array.isArray(result.data)) {
+            throw new Error('Respuesta inválida del servidor');
+        }
+
+        productsData = result.data.map(p => {
+            const precioVenta = Number(p.precioVenta ?? 0);
+            return {
+                ...p,
+                precio: precioVenta,
+                precioOriginal: precioVenta,
+                categoria: p.categoria ? p.categoria.nombre : 'Sin categoría',
+                proveedor: p.proveedor ? p.proveedor.nombre : 'Sin proveedor',
+                imagen: p.imagen || '/images/products/placeholder.jpg',
+                descripcion: p.descripcion || 'Sin descripción'
+            };
+        });
         currentProducts = [...productsData];
         renderProducts(currentProducts);
     } catch (error) {
@@ -177,6 +185,117 @@ function setupEventListeners() {
     const btnConfirmOrder = document.getElementById('btnConfirmOrder');
     if (btnConfirmOrder) {
         btnConfirmOrder.addEventListener('click', submitOrder);
+    }
+
+    const btnConsultarReniec = document.getElementById('btnConsultarReniec');
+    if (btnConsultarReniec) {
+        btnConsultarReniec.addEventListener('click', consultarDocumentoCliente);
+    }
+
+    const inputDniRuc = document.getElementById('clienteDniRuc');
+    if (inputDniRuc) {
+        inputDniRuc.addEventListener('input', actualizarEtiquetasDocumento);
+        inputDniRuc.addEventListener('blur', () => {
+            const doc = inputDniRuc.value.trim();
+            const nombre = document.getElementById('clienteNombre').value.trim();
+            if ((doc.length === 8 || doc.length === 11) && !nombre) {
+                consultarDocumentoCliente();
+            }
+        });
+    }
+}
+
+function actualizarEtiquetasDocumento() {
+    const doc = document.getElementById('clienteDniRuc').value.trim();
+    const labelDni = document.getElementById('labelDniRuc');
+    const labelNombre = document.getElementById('labelNombre');
+    const hintDni = document.getElementById('hintDniRuc');
+    const inputNombre = document.getElementById('clienteNombre');
+    const btnConsultar = document.getElementById('btnConsultarReniec');
+
+    if (doc.length === 11) {
+        labelDni.innerHTML = 'RUC <span class="text-danger">*</span>';
+        labelNombre.innerHTML = 'Nombre <span class="text-danger">*</span>';
+        hintDni.textContent = 'Ingrese su RUC y presione Consultar para obtener el nombre.';
+        inputNombre.placeholder = 'Se completará al consultar su RUC';
+        btnConsultar.title = 'Consultar en SUNAT';
+        inputNombre.readOnly = true;
+    } else {
+        labelDni.innerHTML = 'DNI <span class="text-danger">*</span>';
+        labelNombre.innerHTML = 'Nombre <span class="text-danger">*</span>';
+        hintDni.textContent = 'Ingrese su DNI y presione Consultar para obtener su nombre completo.';
+        inputNombre.placeholder = 'Se completará al consultar su DNI';
+        btnConsultar.title = 'Consultar en RENIEC';
+        if (doc.length !== 8) {
+            inputNombre.readOnly = false;
+            inputNombre.value = '';
+        }
+    }
+}
+
+function resetCheckoutForm() {
+    const form = document.getElementById('formCheckout');
+    if (form) {
+        form.reset();
+        form.classList.remove('was-validated');
+    }
+    const inputNombre = document.getElementById('clienteNombre');
+    if (inputNombre) {
+        inputNombre.readOnly = false;
+    }
+    actualizarEtiquetasDocumento();
+}
+
+// ===== CONSULTA RENIEC / SUNAT =====
+async function consultarDocumentoCliente() {
+    const inputDni = document.getElementById('clienteDniRuc');
+    const inputNombre = document.getElementById('clienteNombre');
+    const inputTelefono = document.getElementById('clienteTelefono');
+    const inputEmail = document.getElementById('clienteEmail');
+    const btnConsultar = document.getElementById('btnConsultarReniec');
+
+    const documento = inputDni.value.trim();
+    if (documento.length !== 8 && documento.length !== 11) {
+        showToast('Ingrese un DNI (8 dígitos) o RUC (11 dígitos) válido');
+        return;
+    }
+
+    const esDni = documento.length === 8;
+    const textoOriginal = btnConsultar.innerHTML;
+    btnConsultar.disabled = true;
+    btnConsultar.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    try {
+        const response = await fetch(`/api/consulta/${documento}`);
+        const data = await response.json();
+
+        if (data.success && data.nombre) {
+            inputNombre.value = data.nombre;
+            if (data.telefono) inputTelefono.value = data.telefono;
+            if (data.email) inputEmail.value = data.email;
+
+            inputNombre.readOnly = true;
+
+            const origen = data.origen === 'registro_local'
+                ? 'Datos cargados desde clientes registrados'
+                : (data.origen === 'reniec' ? 'Nombre completo obtenido de RENIEC'
+                    : (data.origen === 'sunat' ? 'Nombre obtenido de SUNAT' : 'Datos obtenidos correctamente'));
+            showToast(origen);
+        } else {
+            inputNombre.readOnly = false;
+            if (typeof Swal !== 'undefined') {
+                Swal.fire('Consulta no disponible', data.message || 'No se encontraron datos para el documento', 'warning');
+            } else {
+                showToast(data.message || 'No se encontraron datos para el documento');
+            }
+        }
+    } catch (error) {
+        console.error('Error consultando documento:', error);
+        inputNombre.readOnly = false;
+        showToast('Error al consultar el documento');
+    } finally {
+        btnConsultar.disabled = false;
+        btnConsultar.innerHTML = textoOriginal;
     }
 }
 
@@ -535,8 +654,7 @@ async function submitOrder(e) {
             const modal = bootstrap.Modal.getInstance(cartModalEl);
             if (modal) modal.hide();
 
-            form.reset();
-            form.classList.remove('was-validated');
+            resetCheckoutForm();
             
             // Volver paso 1
             document.getElementById('cartStep2').classList.add('d-none');
@@ -545,7 +663,7 @@ async function submitOrder(e) {
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     title: '¡Pedido Registrado!',
-                    text: 'Tu pedido ha sido enviado con éxito. Nos comunicaremos contigo para coordinar el pago y la entrega.',
+                    text: result.message || 'Tu pedido ha sido enviado con éxito. Nos comunicaremos contigo para coordinar el pago y la entrega.',
                     icon: 'success',
                     confirmButtonText: 'Excelente',
                     confirmButtonColor: '#ffc107'
@@ -589,4 +707,4 @@ function showToast(message) {
     } else {
         console.log("Toast:", message);
     }
-}
+}

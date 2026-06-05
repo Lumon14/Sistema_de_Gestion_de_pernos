@@ -48,6 +48,14 @@ public class UsuarioService implements UserDetailsService {
                 throw new IllegalArgumentException("El usuario es obligatorio");
             }
 
+            if (!usuario.getNombre().trim().matches("^[a-zA-Z]+$")) {
+                throw new IllegalArgumentException("El nombre solo puede contener letras mayúsculas y minúsculas");
+            }
+
+            if (!usuario.getUsuario().trim().matches("^[a-zA-Z]+$")) {
+                throw new IllegalArgumentException("El usuario solo puede contener letras mayúsculas y minúsculas");
+            }
+
             if (usuario.getCorreo() == null || usuario.getCorreo().trim().isEmpty()) {
                 throw new IllegalArgumentException("El correo es obligatorio");
             }

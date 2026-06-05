@@ -80,12 +80,16 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label for="nombre" class="form-label">Nombre completo</label>
-                            <input type="text" id="nombre" name="nombre" class="form-control" placeholder="Ej: Admin Luz">
+                            <input type="text" id="nombre" name="nombre" class="form-control"
+                                placeholder="Ej: AdminLuz" pattern="[A-Za-z]+"
+                                title="Solo letras mayúsculas y minúsculas" autocomplete="off">
                             <div id="nombre-error" class="invalid-feedback d-block"></div>
                         </div>
                         <div class="col-md-6">
                             <label for="usuario" class="form-label">Usuario</label>
-                            <input type="text" id="usuario" name="usuario" class="form-control" placeholder="Ej: admin">
+                            <input type="text" id="usuario" name="usuario" class="form-control"
+                                placeholder="Ej: admin" pattern="[A-Za-z]+"
+                                title="Solo letras mayúsculas y minúsculas" autocomplete="off">
                             <div id="usuario-error" class="invalid-feedback d-block"></div>
                         </div>
                         <div class="col-md-6">

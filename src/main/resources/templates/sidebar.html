@@ -1,130 +1,132 @@
 <!DOCTYPE html>
 <html lang="es" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
 <body>
 
-<!-- Fragmento de Sidebar reutilizable con diseño premium -->
-<div th:fragment="sidebar(activeUri)">
-    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+    <!-- Fragmento de Sidebar reutilizable con diseño premium -->
+    <div th:fragment="sidebar(activeUri)">
+        <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
-    <nav id="sidebar" class="sidebar">
+        <nav id="sidebar" class="sidebar">
 
-        <!-- Brand / Logo -->
-        <a th:href="@{/dashboard}" class="sidebar-brand">
-            <div class="sidebar-brand-icon">
-                <i class="bi bi-tools"></i>
+            <!-- Brand / Logo -->
+            <a th:href="@{/dashboard}" class="sidebar-brand">
+                <div class="sidebar-brand-icon">
+                    <i class="bi bi-tools"></i>
+                </div>
+                <div class="sidebar-brand-text">
+                    Pernos Vega
+                    <small>Sistema Administrativo</small>
+                </div>
+            </a>
+
+            <!-- Menú principal -->
+            <div class="pt-2 flex-grow-1 overflow-auto">
+                <div class="sidebar-label">Menú Principal</div>
+                <ul class="nav nav-pills flex-column gap-0 px-1">
+
+                    <li class="nav-item">
+                        <a th:href="@{/dashboard}" class="nav-link"
+                            th:classappend="${activeUri == '/dashboard' or activeUri == '/'} ? 'active-custom' : ''">
+                            <i class="bi bi-house-door-fill"></i>
+                            Dashboard
+                        </a>
+                    </li>
+
+                    <li class="nav-item" sec:authorize="hasAuthority('OPCION_USUARIOS') or hasRole('ADMINISTRADOR')">
+                        <a th:href="@{/usuarios/listar}" class="nav-link"
+                            th:classappend="${activeUri == '/usuarios/listar'} ? 'active-custom' : ''">
+                            <i class="bi bi-people-fill"></i>
+                            Usuarios
+                        </a>
+                    </li>
+
+                    <li class="nav-item" sec:authorize="hasAuthority('OPCION_PERFILES') or hasRole('ADMINISTRADOR')">
+                        <a th:href="@{/perfiles/listar}" class="nav-link"
+                            th:classappend="${activeUri == '/perfiles/listar'} ? 'active-custom' : ''">
+                            <i class="bi bi-person-badge-fill"></i>
+                            Perfiles
+                        </a>
+                    </li>
+
+                    <div class="sidebar-label mt-2">Catálogo</div>
+
+                    <li class="nav-item" sec:authorize="hasAuthority('OPCION_PRODUCTOS') or hasRole('ADMINISTRADOR')">
+                        <a th:href="@{/productos/listar}" class="nav-link"
+                            th:classappend="${activeUri == '/productos/listar'} ? 'active-custom' : ''">
+                            <i class="bi bi-box-fill"></i>
+                            Productos
+                        </a>
+                    </li>
+
+                    <li class="nav-item" sec:authorize="hasAuthority('OPCION_CATEGORÍAS') or hasRole('ADMINISTRADOR')">
+                        <a th:href="@{/categorias/listar}" class="nav-link"
+                            th:classappend="${activeUri == '/categorias/listar'} ? 'active-custom' : ''">
+                            <i class="bi bi-tag-fill"></i>
+                            Categorías
+                        </a>
+                    </li>
+
+                    <li class="nav-item" sec:authorize="hasAuthority('OPCION_PROVEEDORES') or hasRole('ADMINISTRADOR')">
+                        <a th:href="@{/proveedores/listar}" class="nav-link"
+                            th:classappend="${activeUri == '/proveedores/listar'} ? 'active-custom' : ''">
+                            <i class="bi bi-truck"></i>
+                            Proveedores
+                        </a>
+                    </li>
+
+                    <div class="sidebar-label mt-2">Operaciones</div>
+
+                    <li class="nav-item">
+                        <a th:href="@{/clientes/listar}" class="nav-link"
+                            th:classappend="${activeUri == '/clientes/listar'} ? 'active-custom' : ''">
+                            <i class="bi bi-person-badge-fill"></i>
+                            Clientes
+                        </a>
+                    </li>
+
+                    <li class="nav-item" sec:authorize="hasAuthority('OPCION_VENTAS') or hasRole('ADMINISTRADOR')">
+                        <a th:href="@{/pedidos/listar}" class="nav-link"
+                            th:classappend="${activeUri == '/pedidos/listar'} ? 'active-custom' : ''">
+                            <i class="bi bi-clock-history"></i>
+                            Pedidos
+                        </a>
+                    </li>
+
+                    <li class="nav-item" sec:authorize="hasAuthority('OPCION_VENTAS') or hasRole('ADMINISTRADOR')">
+                        <a th:href="@{/ventas/listar}" class="nav-link"
+                            th:classappend="${activeUri == '/ventas/listar'} ? 'active-custom' : ''">
+                            <i class="bi bi-cart-fill"></i>
+                            Ventas
+                        </a>
+                    </li>
+
+                    <li class="nav-item" sec:authorize="hasAuthority('OPCION_INVENTARIO') or hasRole('ADMINISTRADOR')">
+                        <a th:href="@{/inventario/listar}" class="nav-link"
+                            th:classappend="${activeUri == '/inventario/listar'} ? 'active-custom' : ''">
+                            <i class="bi bi-archive-fill"></i>
+                            Inventario
+                        </a>
+                    </li>
+
+                </ul>
             </div>
-            <div class="sidebar-brand-text">
-                Pernos Vega
-                <small>Sistema Administrativo</small>
+
+            <!-- Footer del sidebar -->
+            <div class="sidebar-footer">
+                <ul class="nav nav-pills flex-column px-1">
+                    <li class="nav-item">
+                        <a th:href="@{/logout}" class="nav-link">
+                            <i class="bi bi-box-arrow-right"></i>
+                            Cerrar Sesión
+                        </a>
+                    </li>
+                </ul>
             </div>
-        </a>
 
-        <!-- Menú principal -->
-        <div class="pt-2 flex-grow-1 overflow-auto">
-            <div class="sidebar-label">Menú Principal</div>
-            <ul class="nav nav-pills flex-column gap-0 px-1">
-
-                <li class="nav-item">
-                    <a th:href="@{/dashboard}" class="nav-link"
-                       th:classappend="${activeUri == '/dashboard' or activeUri == '/'} ? 'active-custom' : ''">
-                        <i class="bi bi-house-door-fill"></i>
-                        Dashboard
-                    </a>
-                </li>
-
-                <li class="nav-item" sec:authorize="hasAuthority('OPCION_USUARIOS') or hasRole('ADMINISTRADOR')">
-                    <a th:href="@{/usuarios/listar}" class="nav-link"
-                       th:classappend="${activeUri == '/usuarios/listar'} ? 'active-custom' : ''">
-                        <i class="bi bi-people-fill"></i>
-                        Usuarios
-                    </a>
-                </li>
-
-                <li class="nav-item" sec:authorize="hasAuthority('OPCION_PERFILES') or hasRole('ADMINISTRADOR')">
-                    <a th:href="@{/perfiles/listar}" class="nav-link"
-                       th:classappend="${activeUri == '/perfiles/listar'} ? 'active-custom' : ''">
-                        <i class="bi bi-person-badge-fill"></i>
-                        Perfiles
-                    </a>
-                </li>
-
-                <div class="sidebar-label mt-2">Catálogo</div>
-
-                <li class="nav-item" sec:authorize="hasAuthority('OPCION_PRODUCTOS') or hasRole('ADMINISTRADOR')">
-                    <a th:href="@{/productos/listar}" class="nav-link"
-                       th:classappend="${activeUri == '/productos/listar'} ? 'active-custom' : ''">
-                        <i class="bi bi-box-fill"></i>
-                        Productos
-                    </a>
-                </li>
-
-                <li class="nav-item" sec:authorize="hasAuthority('OPCION_CATEGORÍAS') or hasRole('ADMINISTRADOR')">
-                    <a th:href="@{/categorias/listar}" class="nav-link"
-                       th:classappend="${activeUri == '/categorias/listar'} ? 'active-custom' : ''">
-                        <i class="bi bi-tag-fill"></i>
-                        Categorías
-                    </a>
-                </li>
-
-                <li class="nav-item" sec:authorize="hasAuthority('OPCION_PROVEEDORES') or hasRole('ADMINISTRADOR')">
-                    <a th:href="@{/proveedores/listar}" class="nav-link"
-                       th:classappend="${activeUri == '/proveedores/listar'} ? 'active-custom' : ''">
-                        <i class="bi bi-truck"></i>
-                        Proveedores
-                    </a>
-                </li>
-
-                <div class="sidebar-label mt-2">Operaciones</div>
-
-                <li class="nav-item">
-                    <a th:href="@{/clientes/listar}" class="nav-link"
-                       th:classappend="${activeUri == '/clientes/listar'} ? 'active-custom' : ''">
-                        <i class="bi bi-person-badge-fill"></i>
-                        Clientes
-                    </a>
-                </li>
-
-                <li class="nav-item" sec:authorize="hasAuthority('OPCION_VENTAS') or hasRole('ADMINISTRADOR')">
-                    <a th:href="@{/pedidos/listar}" class="nav-link"
-                       th:classappend="${activeUri == '/pedidos/listar'} ? 'active-custom' : ''">
-                        <i class="bi bi-clock-history"></i>
-                        Pedidos
-                    </a>
-                </li>
-
-                <li class="nav-item" sec:authorize="hasAuthority('OPCION_VENTAS') or hasRole('ADMINISTRADOR')">
-                    <a th:href="@{/ventas/listar}" class="nav-link"
-                       th:classappend="${activeUri == '/ventas/listar'} ? 'active-custom' : ''">
-                        <i class="bi bi-cart-fill"></i>
-                        Ventas
-                    </a>
-                </li>
-
-                <li class="nav-item" sec:authorize="hasAuthority('OPCION_INVENTARIO') or hasRole('ADMINISTRADOR')">
-                    <a href="#" class="nav-link disabled-link">
-                        <i class="bi bi-archive-fill"></i>
-                        Inventario
-                        <span class="badge-soon">Pronto</span>
-                    </a>
-                </li>
-
-            </ul>
-        </div>
-
-        <!-- Footer del sidebar -->
-        <div class="sidebar-footer">
-            <ul class="nav nav-pills flex-column px-1">
-                <li class="nav-item">
-                    <a th:href="@{/logout}" class="nav-link">
-                        <i class="bi bi-box-arrow-right"></i>
-                        Cerrar Sesión
-                    </a>
-                </li>
-            </ul>
-        </div>
-
-    </nav>
-</div>
+        </nav>
+    </div>
 
 </body>
+
 </html>

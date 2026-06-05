@@ -13,7 +13,7 @@ $(document).ready(function() {
                     : `<img src="/images/products/placeholder.jpg" class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;">`
             },
             { data: 'nombre', className: 'fw-bold text-primary' },
-            { data: 'descripcion', className: 'small text-muted' },
+            { data: 'descripcion', className: 'small text-muted', defaultContent: '—' },
             { data: 'categoria.nombre' },
             { 
                 data: 'estado',
@@ -52,6 +52,29 @@ $(document).ready(function() {
     $('#customSearch').on('keyup', function() {
         dataTable.search(this.value).draw();
     });
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const editId = urlParams.get('edit');
+    if (editId) {
+        fetch(`/productos/api/${editId}`).then(res => res.json()).then(res => {
+            if (res.success) {
+                const p = res.data;
+                $('#id').val(p.id);
+                $('#nombre').val(p.nombre);
+                $('#id_categoria').val(p.categoria ? p.categoria.id : '');
+                $('#precioCompra').val(p.precioCompra);
+                $('#precioVenta').val(p.precioVenta);
+                $('#stock').val(p.stock);
+                $('#stockMinimo').val(p.stockMinimo);
+                $('#descripcion').val(p.descripcion);
+                if (p.imagen) {
+                    $('#imagePreview').show().find('img').attr('src', p.imagen);
+                }
+                $('.modal-title').text('Editar Producto');
+                productoModal.show();
+            }
+        });
+    }
 
     $('#btnNuevoProducto').click(() => {
         $('#formProducto')[0].reset();

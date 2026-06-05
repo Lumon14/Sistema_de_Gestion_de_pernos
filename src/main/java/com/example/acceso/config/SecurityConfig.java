@@ -52,7 +52,7 @@ public class SecurityConfig {
             )
             .authenticationProvider(authenticationProvider())
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/login", "/catalogo", "/nosotros", "/productos/api/listar", "/categorias/api/listar", "/pedidos/api/registrar", "/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
+                .requestMatchers("/", "/login", "/catalogo", "/nosotros", "/productos/api/listar", "/productos/api/catalogo", "/categorias/api/listar", "/pedidos/api/registrar", "/api/consulta/**", "/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form

@@ -45,8 +45,9 @@ public class PedidoController {
     @ResponseBody
     public ResponseEntity<?> registrar(@RequestBody Pedido pedido) {
         try {
-            Pedido guardado = pedidoService.registrarPedido(pedido, pedido.getCliente());
-            return ResponseEntity.ok(Map.of("success", true, "data", guardado, "message", "Pedido registrado con éxito"));
+            PedidoService.ResultadoPedido resultado = pedidoService.registrarPedido(pedido, pedido.getCliente());
+            String mensaje = "Pedido registrado con éxito. " + resultado.getMensajeCliente();
+            return ResponseEntity.ok(Map.of("success", true, "data", resultado.getPedido(), "message", mensaje));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @Controller
 @RequestMapping("/clientes")
@@ -68,8 +69,20 @@ public class ClienteController {
     @GetMapping("/api/consultar-externo/{dni}")
     @ResponseBody
     public ResponseEntity<?> consultarExterno(@PathVariable String dni) {
-        Map<String, Object> data = consultaService.consultarDni(dni);
-        return ResponseEntity.ok(data);
+        Optional<Cliente> clienteLocal = clienteService.obtenerPorDniRuc(dni.trim());
+        if (clienteLocal.isPresent() && !consultaService.esNombreSimulado(clienteLocal.get().getNombre())) {
+            Cliente c = clienteLocal.get();
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("nombre", c.getNombre());
+            result.put("telefono", c.getTelefono());
+            result.put("email", c.getEmail());
+            result.put("direccion", c.getDireccion());
+            result.put("origen", "registro_local");
+            result.put("message", "Cliente encontrado en el sistema");
+            return ResponseEntity.ok(result);
+        }
+        return ResponseEntity.ok(consultaService.consultarDocumento(dni));
     }
 
     @DeleteMapping("/api/eliminar/{id}")

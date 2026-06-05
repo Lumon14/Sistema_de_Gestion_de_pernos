@@ -12,6 +12,8 @@ $(document).ready(function() {
     let verVentaModal;
     let emailModal;
     let selectedClienteId = null;
+    let selectedClienteNombre = null;
+    let clienteGeneralId = null;
     let currentVentaForEmail = null; // Venta activa para el modal de correo
 
     // Inicializar Componentes
@@ -23,10 +25,12 @@ $(document).ready(function() {
     // Inicializar Select2
     $('.select2-producto').select2({
         theme: 'bootstrap-5',
-        dropdownParent: $('#ventaModal')
+        dropdownParent: $('#ventaModal'),
+        placeholder: 'Buscar familia, modelo o código...',
+        allowClear: true
     });
 
-    initializeSelect2Cliente();
+    cargarClienteGeneral();
 
     // Event Listeners
     setupEventListeners();
@@ -93,30 +97,40 @@ $(document).ready(function() {
         });
     }
 
-    /**
-     * Configura Select2 para clientes con búsqueda remota
-     */
-    function initializeSelect2Cliente() {
-        $('.select2-cliente').select2({
-            theme: 'bootstrap-5',
-            dropdownParent: $('#ventaModal'),
-            placeholder: 'Buscar cliente...',
-            ajax: {
-                url: '/clientes/api/listar',
-                processResults: function (data) {
-                    return {
-                        results: data.data.map(c => ({
-                            id: c.id,
-                            text: `${c.dniRuc} - ${c.nombre}`,
-                            data: c
-                        }))
-                    };
-                }
-            }
-        }).on('select2:select', function (e) {
-            selectedClienteId = e.params.data.id;
-            $('#datosNuevoCliente').addClass('d-none');
-        });
+    function cargarClienteGeneral() {
+        fetch('/clientes/api/listar')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) return;
+                const general = data.data.find(c =>
+                    (c.nombre && c.nombre.toLowerCase().includes('general')) ||
+                    c.dniRuc === '00000000'
+                );
+                if (general) clienteGeneralId = general.id;
+            })
+            .catch(() => {});
+    }
+
+    function aplicarCliente(id, nombre, dniRuc) {
+        selectedClienteId = id;
+        selectedClienteNombre = nombre;
+        $('#clienteActivoInfo').html(
+            `<i class="bi bi-person-check-fill me-1"></i>Cliente Activo: <span class="text-uppercase">${nombre}</span>`
+        );
+        if (dniRuc) {
+            $('#inputBuscarCliente').val(dniRuc);
+            $('#inputComprobante').val(
+                dniRuc.length === 11 ? 'FACTURA' : 'NOTA DE VENTA'
+            );
+        }
+        actualizarEstadoCobro();
+    }
+
+    function limpiarCliente() {
+        selectedClienteId = null;
+        selectedClienteNombre = null;
+        $('#clienteActivoInfo').empty();
+        actualizarEstadoCobro();
     }
 
     /**
@@ -128,16 +142,57 @@ $(document).ready(function() {
             ventaModal.show();
         });
 
+        $('#inputBuscarCliente').on('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                buscarClientePorDocumento($(this).val().trim());
+            }
+        });
+
+        $('#btnBuscarCliente').on('click', function() {
+            buscarClientePorDocumento($('#inputBuscarCliente').val().trim());
+        });
+
+        $('#btnClienteGeneral').on('click', seleccionarClienteGeneral);
+
+        $('#selectMetodoPago').on('change', function() {
+            const esEfectivo = $(this).val() === 'efectivo';
+            $('#boxEfectivo').toggleClass('d-none', !esEfectivo);
+            actualizarEstadoCobro();
+        });
+
+        $('#inputEfectivoRecibido').on('input', calcularVuelto);
+
         $('#selectProducto').on('change', function() {
             const precio = $(this).find(':selected').data('precio');
             $('#inputPrecio').val(precio ? parseFloat(precio).toFixed(2) : '');
+            if ($(this).val()) {
+                agregarProductoALista();
+            }
         });
 
-        $('#btnAgregarProducto').on('click', agregarProductoALista);
+        $('#btnVerCatalogo').on('click', () => window.open('/catalogo', '_blank'));
 
         $('#tablaDetalles').on('click', '.btn-remove-item', function() {
             const index = $(this).data('index');
             itemsVenta.splice(index, 1);
+            renderizarListaDetalles();
+        });
+
+        $('#tablaDetalles').on('change', '.input-cantidad-item', function() {
+            const index = $(this).data('index');
+            const nuevaCantidad = parseInt($(this).val(), 10);
+            const item = itemsVenta[index];
+            if (!item || isNaN(nuevaCantidad) || nuevaCantidad < 1) {
+                $(this).val(item ? item.cantidad : 1);
+                return;
+            }
+            if (nuevaCantidad > item.stock) {
+                Swal.fire('Stock insuficiente', `Solo hay ${item.stock} unidades disponibles`, 'warning');
+                $(this).val(item.cantidad);
+                return;
+            }
+            item.cantidad = nuevaCantidad;
             renderizarListaDetalles();
         });
 
@@ -236,20 +291,197 @@ $(document).ready(function() {
         });
     }
 
+    function buscarClientePorDocumento(termino) {
+        if (!termino) {
+            limpiarCliente();
+            return;
+        }
+
+        const doc = termino.replace(/\D/g, '');
+
+        if (doc.length === 8 || doc.length === 11) {
+            consultarClientePorDocumento(doc);
+            return;
+        }
+
+        if (/^\d+$/.test(termino)) {
+            Swal.fire('Documento inválido', 'Ingrese un DNI de 8 dígitos o un RUC de 11 dígitos', 'warning');
+            return;
+        }
+
+        buscarClienteEnListado(termino);
+    }
+
+    function consultarClientePorDocumento(doc) {
+        showLoading(true);
+
+        fetch(`/clientes/api/buscar/${doc}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.data) {
+                    aplicarCliente(data.data.id, data.data.nombre, data.data.dniRuc);
+                    return null;
+                }
+                return fetch(`/clientes/api/consultar-externo/${doc}`);
+            })
+            .then(res => {
+                if (!res) return null;
+                return res.json();
+            })
+            .then(extData => {
+                if (!extData) return;
+
+                if (!extData.success) {
+                    limpiarCliente();
+                    Swal.fire('No encontrado', extData.message || 'Documento no encontrado', 'warning');
+                    return;
+                }
+
+                if (extData.origen === 'registro_local') {
+                    return fetch(`/clientes/api/buscar/${doc}`)
+                        .then(res => res.json())
+                        .then(localData => {
+                            if (localData.success && localData.data) {
+                                aplicarCliente(localData.data.id, localData.data.nombre, localData.data.dniRuc);
+                            }
+                        });
+                }
+
+                return registrarClienteDesdeConsulta(doc, extData);
+            })
+            .catch(() => Swal.fire('Error', 'Error al consultar el documento', 'error'))
+            .finally(() => showLoading(false));
+    }
+
+    function registrarClienteDesdeConsulta(doc, datosConsulta) {
+        const clienteData = {
+            dniRuc: doc,
+            nombre: datosConsulta.nombre,
+            telefono: datosConsulta.telefono || '',
+            email: datosConsulta.email || '',
+            direccion: datosConsulta.direccion || ''
+        };
+
+        return fetch('/clientes/api/guardar', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...getCsrfHeaders()
+            },
+            body: JSON.stringify(clienteData)
+        })
+        .then(res => res.json())
+        .then(saveData => {
+            if (saveData.success && saveData.data) {
+                aplicarCliente(saveData.data.id, saveData.data.nombre, saveData.data.dniRuc);
+                Swal.fire({
+                    icon: 'success',
+                    title: datosConsulta.message || 'Cliente registrado',
+                    timer: 1800,
+                    showConfirmButton: false
+                });
+            } else {
+                Swal.fire('Error', saveData.message || 'No se pudo registrar el cliente', 'error');
+            }
+        });
+    }
+
+    function buscarClienteEnListado(termino) {
+        const terminoLower = termino.toLowerCase();
+        fetch('/clientes/api/listar')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) return;
+                const coincidencias = data.data.filter(c =>
+                    (c.nombre && c.nombre.toLowerCase().includes(terminoLower)) ||
+                    (c.dniRuc && c.dniRuc.includes(termino))
+                );
+                if (coincidencias.length === 1) {
+                    const c = coincidencias[0];
+                    aplicarCliente(c.id, c.nombre, c.dniRuc);
+                } else if (coincidencias.length > 1) {
+                    const opciones = coincidencias.map(c => `${c.dniRuc} - ${c.nombre}`).join('<br>');
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Varios clientes encontrados',
+                        html: `Seleccione con más precisión:<br><small>${opciones}</small>`
+                    });
+                } else {
+                    limpiarCliente();
+                    Swal.fire('No encontrado', 'No existe un cliente con ese dato', 'warning');
+                }
+            });
+    }
+
+    function seleccionarClienteGeneral() {
+        const aplicarSiExiste = (cliente) => {
+            if (cliente) {
+                clienteGeneralId = cliente.id;
+                aplicarCliente(cliente.id, cliente.nombre, cliente.dniRuc);
+            }
+        };
+
+        if (clienteGeneralId) {
+            fetch(`/clientes/api/${clienteGeneralId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) aplicarCliente(data.data.id, data.data.nombre, data.data.dniRuc);
+                });
+            return;
+        }
+
+        showLoading(true);
+        fetch('/clientes/api/listar')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) return;
+                const general = data.data.find(c =>
+                    (c.nombre && c.nombre.toLowerCase().includes('general')) ||
+                    c.dniRuc === '00000000'
+                );
+                if (general) {
+                    aplicarSiExiste(general);
+                    return;
+                }
+
+                return fetch('/clientes/api/guardar', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getCsrfHeaders()
+                    },
+                    body: JSON.stringify({
+                        dniRuc: '00000000',
+                        nombre: 'CLIENTE GENERAL'
+                    })
+                });
+            })
+            .then(res => {
+                if (!res) return;
+                return res.json();
+            })
+            .then(saveData => {
+                if (saveData && saveData.success && saveData.data) {
+                    aplicarSiExiste(saveData.data);
+                } else if (saveData && !saveData.success) {
+                    Swal.fire('Error', saveData.message || 'No se pudo crear el Cliente General', 'error');
+                }
+            })
+            .catch(() => Swal.fire('Error', 'Error al obtener el Cliente General', 'error'))
+            .finally(() => showLoading(false));
+    }
+
     /**
      * Agrega un producto a la lista temporal
      */
     function agregarProductoALista() {
         const prodId = $('#selectProducto').val();
         const prodNombre = $('#selectProducto option:selected').text().split(' (')[0];
-        const cantidad = parseInt($('#inputCantidad').val());
+        const cantidad = parseInt($('#inputCantidad').val(), 10) || 1;
         const precio = parseFloat($('#inputPrecio').val());
-        const stock = parseInt($('#selectProducto option:selected').data('stock'));
+        const stock = parseInt($('#selectProducto option:selected').data('stock'), 10);
 
-        if (!prodId) {
-            Swal.fire('Error', 'Seleccione un producto', 'warning');
-            return;
-        }
+        if (!prodId) return;
 
         if (cantidad > stock) {
             Swal.fire('Stock insuficiente', `Solo hay ${stock} unidades disponibles`, 'error');
@@ -268,7 +500,8 @@ $(document).ready(function() {
                 productoId: prodId,
                 nombre: prodNombre,
                 cantidad: cantidad,
-                precio: precio
+                precio: precio,
+                stock: stock
             });
         }
 
@@ -284,28 +517,98 @@ $(document).ready(function() {
     function renderizarListaDetalles() {
         const tbody = $('#tablaDetalles tbody');
         tbody.empty();
+
         let total = 0;
+
+        if (itemsVenta.length === 0) {
+            tbody.append(`
+                <tr class="tabla-empty">
+                    <td colspan="5">
+                        <i class="bi bi-basket d-block mb-1 fs-4"></i>
+                        Agregue productos desde el buscador o el catálogo
+                    </td>
+                </tr>
+            `);
+            actualizarResumen(0);
+            $('#infoItems').text('0 productos agregados');
+            return;
+        }
 
         itemsVenta.forEach((item, index) => {
             const subtotal = item.cantidad * item.precio;
             total += subtotal;
             tbody.append(`
                 <tr>
-                    <td>${item.nombre}</td>
-                    <td class="text-center">${item.cantidad}</td>
-                    <td class="text-end">S/. ${item.precio.toFixed(2)}</td>
-                    <td class="text-end fw-bold">S/. ${subtotal.toFixed(2)}</td>
+                    <td class="text-truncate" style="max-width: 280px;" title="${item.nombre}">${item.nombre}</td>
+                    <td class="text-end">S/ ${item.precio.toFixed(2)}</td>
                     <td class="text-center">
-                        <button type="button" class="btn btn-sm btn-link text-danger btn-remove-item" data-index="${index}">
-                            <i class="bi bi-trash"></i>
+                        <input type="number" class="form-control form-control-sm input-cantidad-item"
+                            value="${item.cantidad}" min="1" data-index="${index}">
+                    </td>
+                    <td class="text-end fw-semibold">S/ ${subtotal.toFixed(2)}</td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-danger btn-remove-item" data-index="${index}" title="Quitar">
+                            <i class="bi bi-x-lg"></i>
                         </button>
                     </td>
                 </tr>
             `);
         });
 
-        $('#totalVenta').text(total.toFixed(2));
-        $('#infoItems').text(`${itemsVenta.length} productos seleccionados`);
+        actualizarResumen(total);
+        $('#infoItems').text(`${itemsVenta.length} producto${itemsVenta.length === 1 ? '' : 's'} agregado${itemsVenta.length === 1 ? '' : 's'}`);
+    }
+
+    function actualizarResumen(total) {
+        const totalRedondeado = Math.round(total * 100) / 100;
+        const subtotal = Math.round((totalRedondeado / 1.18) * 100) / 100;
+        const igv = Math.round((totalRedondeado - subtotal) * 100) / 100;
+
+        $('#subtotalVenta').text(subtotal.toFixed(2));
+        $('#igvVenta').text(igv.toFixed(2));
+        $('#descuentoVenta').text('0.00');
+        $('#totalVenta').text(totalRedondeado.toFixed(2));
+        calcularVuelto();
+    }
+
+    function calcularVuelto() {
+        const total = parseFloat($('#totalVenta').text()) || 0;
+        const metodo = $('#selectMetodoPago').val();
+        const $vuelto = $('#vueltoInfo');
+
+        if (metodo !== 'efectivo') {
+            $vuelto.removeClass('insuficiente ok').text('');
+            actualizarEstadoCobro();
+            return;
+        }
+
+        const recibido = parseFloat($('#inputEfectivoRecibido').val()) || 0;
+        const vuelto = Math.round((recibido - total) * 100) / 100;
+
+        if (total <= 0) {
+            $vuelto.removeClass('ok').addClass('insuficiente').text('Vuelto: —');
+        } else if (recibido < total) {
+            $vuelto.removeClass('ok').addClass('insuficiente').text('Vuelto: Monto insuficiente');
+        } else {
+            $vuelto.removeClass('insuficiente').addClass('ok').text(`Vuelto: S/ ${vuelto.toFixed(2)}`);
+        }
+
+        actualizarEstadoCobro();
+    }
+
+    function actualizarEstadoCobro() {
+        const total = parseFloat($('#totalVenta').text()) || 0;
+        const tieneCliente = !!selectedClienteId;
+        const tieneItems = itemsVenta.length > 0;
+        const metodo = $('#selectMetodoPago').val();
+        let pagoValido = true;
+
+        if (metodo === 'efectivo' && total > 0) {
+            const recibido = parseFloat($('#inputEfectivoRecibido').val()) || 0;
+            pagoValido = recibido >= total;
+        }
+
+        $('#btnProcesarVenta').prop('disabled', !(tieneCliente && tieneItems && total > 0 && pagoValido));
     }
 
     /**
@@ -322,9 +625,19 @@ $(document).ready(function() {
             return;
         }
 
+        const total = parseFloat($('#totalVenta').text());
+        const metodo = $('#selectMetodoPago').val();
+        if (metodo === 'efectivo') {
+            const recibido = parseFloat($('#inputEfectivoRecibido').val()) || 0;
+            if (recibido < total) {
+                Swal.fire('Pago insuficiente', 'El efectivo recibido no cubre el total', 'warning');
+                return;
+            }
+        }
+
         const ventaData = {
             cliente: { id: selectedClienteId },
-            total: parseFloat($('#totalVenta').text()),
+            total: total,
             detalles: itemsVenta.map(item => ({
                 producto: { id: item.productoId },
                 cantidad: item.cantidad,
@@ -332,12 +645,17 @@ $(document).ready(function() {
             }))
         };
 
+        const metodoLabel = $('#selectMetodoPago option:selected').text().trim();
         Swal.fire({
-            title: '¿Confirmar venta?',
-            text: `Total a cobrar: S/. ${ventaData.total.toFixed(2)}`,
+            title: '¿Confirmar cobro?',
+            html: `
+                <p class="mb-1"><strong>Cliente:</strong> ${selectedClienteNombre || '—'}</p>
+                <p class="mb-1"><strong>Método:</strong> ${metodoLabel}</p>
+                <p class="mb-0 fs-5 fw-bold text-warning">Total: S/ ${ventaData.total.toFixed(2)}</p>
+            `,
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Sí, procesar',
+            confirmButtonText: 'Sí, cobrar',
             cancelButtonText: 'Revisar'
         }).then((result) => {
             if (result.isConfirmed) {
@@ -712,11 +1030,19 @@ $(document).ready(function() {
     function resetVentaForm() {
         itemsVenta = [];
         selectedClienteId = null;
-        $('.select2-cliente').val(null).trigger('change');
+        selectedClienteNombre = null;
+        $('#inputBuscarCliente').val('');
+        $('#clienteActivoInfo').empty();
         $('#selectProducto').val(null).trigger('change');
         $('#inputCantidad').val(1);
         $('#inputPrecio').val('');
+        $('#inputComprobante').val('NOTA DE VENTA');
+        $('#selectMetodoPago').val('efectivo');
+        $('#boxEfectivo').removeClass('d-none');
+        $('#inputEfectivoRecibido').val('0');
+        $('#vueltoInfo').removeClass('ok').addClass('insuficiente').text('Vuelto: Monto insuficiente');
         renderizarListaDetalles();
+        actualizarEstadoCobro();
     }
 
     function showLoading(show) {

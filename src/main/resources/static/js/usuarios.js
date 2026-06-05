@@ -31,6 +31,7 @@ $(document).ready(function() {
 
     // Event Listeners
     setupEventListeners();
+    setupSoloLetrasInputs();
 
     /**
      * Inicializa DataTable con configuración completa
@@ -97,6 +98,24 @@ $(document).ready(function() {
                 </button>
             </div>
         `;
+    }
+
+    const REGEX_SOLO_LETRAS = /^[a-zA-Z]+$/;
+    const MSG_SOLO_LETRAS = 'Solo se permiten letras mayúsculas y minúsculas';
+
+    /**
+     * Muestra aviso si el campo contiene caracteres no permitidos (sin bloquear la escritura)
+     */
+    function setupSoloLetrasInputs() {
+        $('#nombre, #usuario').on('input', function() {
+            const fieldName = this.id;
+            if (this.value && /[^a-zA-Z]/.test(this.value)) {
+                showFieldError(fieldName, MSG_SOLO_LETRAS);
+            } else {
+                $(`#${fieldName}`).removeClass('is-invalid');
+                $(`#${fieldName}-error`).text('');
+            }
+        });
     }
 
     /**
@@ -388,6 +407,9 @@ $(document).ready(function() {
         } else if (formData.nombre.length < 2) {
             showFieldError('nombre', 'El nombre debe tener al menos 2 caracteres');
             hasErrors = true;
+        } else if (!REGEX_SOLO_LETRAS.test(formData.nombre)) {
+            showFieldError('nombre', MSG_SOLO_LETRAS);
+            hasErrors = true;
         }
 
         if (!formData.usuario) {
@@ -395,6 +417,9 @@ $(document).ready(function() {
             hasErrors = true;
         } else if (formData.usuario.length < 3) {
             showFieldError('usuario', 'El usuario debe tener al menos 3 caracteres');
+            hasErrors = true;
+        } else if (!REGEX_SOLO_LETRAS.test(formData.usuario)) {
+            showFieldError('usuario', MSG_SOLO_LETRAS);
             hasErrors = true;
         }
 

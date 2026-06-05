@@ -299,13 +299,19 @@
                         <form id="formCheckout" class="needs-validation" novalidate>
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label for="clienteDniRuc" class="form-label fw-bold">DNI o RUC <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="clienteDniRuc" required maxlength="11" minlength="8" placeholder="Ej: 71077968">
+                                    <label for="clienteDniRuc" id="labelDniRuc" class="form-label fw-bold">DNI <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="clienteDniRuc" required maxlength="11" minlength="8" placeholder="Ej: 71077968" inputmode="numeric">
+                                        <button class="btn btn-outline-warning" type="button" id="btnConsultarReniec" title="Consultar en RENIEC">
+                                            <i class="bi bi-search"></i> Consultar
+                                        </button>
+                                    </div>
+                                    <div class="form-text" id="hintDniRuc">Ingrese su DNI y presione Consultar para obtener su nombre completo.</div>
                                     <div class="invalid-feedback">Por favor, ingrese un DNI (8 dígitos) o RUC (11 dígitos) válido.</div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label for="clienteNombre" class="form-label fw-bold">Nombre Completo o Razón Social <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="clienteNombre" required placeholder="Ej: Luz de Belén">
+                                    <label for="clienteNombre" id="labelNombre" class="form-label fw-bold">Nombre <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="clienteNombre" required placeholder="Se completará al consultar su DNI">
                                     <div class="invalid-feedback">Este campo es obligatorio.</div>
                                 </div>
                                 <div class="col-md-6">

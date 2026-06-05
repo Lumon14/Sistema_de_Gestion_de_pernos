@@ -82,19 +82,25 @@ $(document).ready(function() {
         });
 
         $('#btnBuscarDni').on('click', function() {
-            const dni = $('#dniRuc').val().trim();
-            if (dni.length < 8) {
-                Swal.fire('Atención', 'Ingrese un DNI o RUC válido', 'warning');
+            const documento = $('#dniRuc').val().trim();
+            if (documento.length !== 8 && documento.length !== 11) {
+                Swal.fire('Atención', 'Ingrese un DNI (8 dígitos) o RUC (11 dígitos) válido', 'warning');
                 return;
             }
 
             showLoading(true);
-            fetch(`/clientes/api/consultar-externo/${dni}`)
+            fetch(`/clientes/api/consultar-externo/${documento}`)
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
                         $('#nombre').val(data.nombre);
-                        Swal.fire('¡Éxito!', 'Datos encontrados', 'success');
+                        if (data.telefono) $('#telefono').val(data.telefono);
+                        if (data.email) $('#email').val(data.email);
+                        if (data.direccion) $('#direccion').val(data.direccion);
+                        const msg = data.origen === 'registro_local'
+                            ? 'Cliente ya registrado en el sistema'
+                            : (data.message || 'Datos encontrados');
+                        Swal.fire('¡Éxito!', msg, 'success');
                     } else {
                         Swal.fire('Información', data.message || 'No se encontraron resultados', 'info');
                     }
