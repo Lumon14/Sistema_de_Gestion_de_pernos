@@ -48,8 +48,8 @@ public class UsuarioService implements UserDetailsService {
                 throw new IllegalArgumentException("El usuario es obligatorio");
             }
 
-            if (!usuario.getNombre().trim().matches("^[a-zA-Z]+$")) {
-                throw new IllegalArgumentException("El nombre solo puede contener letras mayúsculas y minúsculas");
+            if (!usuario.getNombre().trim().matches("^[\\p{L}\\s]+$")) {
+                throw new IllegalArgumentException("El nombre solo puede contener letras y espacios");
             }
 
             if (!usuario.getUsuario().trim().matches("^[a-zA-Z]+$")) {
@@ -64,6 +64,8 @@ public class UsuarioService implements UserDetailsService {
             usuario.setNombre(usuario.getNombre().trim());
             usuario.setUsuario(usuario.getUsuario().trim().toLowerCase());
             usuario.setCorreo(usuario.getCorreo().trim().toLowerCase());
+
+            validarDuplicados(usuario);
 
             // Manejo de contraseñas y actualización
             if (usuario.getId() != null) {
@@ -161,6 +163,30 @@ public class UsuarioService implements UserDetailsService {
             // No se hace nada si el estado es 2 (eliminado)
             return usuarioRepository.save(usuario);
         });
+    }
+
+    private void validarDuplicados(Usuario usuario) {
+        if (usuario.getId() != null) {
+            if (usuarioRepository.existsByUsuarioAndIdNot(usuario.getUsuario(), usuario.getId())) {
+                throw new IllegalArgumentException("El nombre de usuario ya existe");
+            }
+            if (usuarioRepository.existsByCorreoAndIdNot(usuario.getCorreo(), usuario.getId())) {
+                throw new IllegalArgumentException("El correo electrónico ya está registrado");
+            }
+            if (usuarioRepository.existsByNombreIgnoreCaseAndIdNot(usuario.getNombre(), usuario.getId())) {
+                throw new IllegalArgumentException("Ya existe un usuario con ese nombre");
+            }
+        } else {
+            if (usuarioRepository.existsByUsuario(usuario.getUsuario())) {
+                throw new IllegalArgumentException("El nombre de usuario ya existe");
+            }
+            if (usuarioRepository.existsByCorreo(usuario.getCorreo())) {
+                throw new IllegalArgumentException("El correo electrónico ya está registrado");
+            }
+            if (usuarioRepository.existsByNombreIgnoreCase(usuario.getNombre())) {
+                throw new IllegalArgumentException("Ya existe un usuario con ese nombre");
+            }
+        }
     }
 
     /**

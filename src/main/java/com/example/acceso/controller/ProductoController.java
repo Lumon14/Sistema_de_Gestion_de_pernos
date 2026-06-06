@@ -89,6 +89,10 @@ public class ProductoController {
             response.put("data", guardado);
             response.put("message", "Producto guardado correctamente");
             return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         } catch (IOException e) {
             response.put("success", false);
             response.put("message", "Error al guardar la imagen: " + e.getMessage());

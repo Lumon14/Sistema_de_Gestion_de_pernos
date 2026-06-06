@@ -60,7 +60,7 @@
                                 <tr>
                                     <th>ID</th>
                                     <th>DNI / RUC</th>
-                                    <th>Nombre / Razón Social</th>
+                                    <th>Nombre Completo</th>
                                     <th>Teléfono</th>
                                     <th>Email</th>
                                     <th>Estado</th>
@@ -85,35 +85,37 @@
                     <h5 class="modal-title" id="modalTitle">Nuevo Cliente</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form id="formCliente">
+                <form id="formCliente" novalidate>
                     <div class="modal-body p-4">
                         <input type="hidden" id="id">
                         
                         <div class="mb-3">
                             <label for="dniRuc" class="form-label small fw-bold">DNI o RUC</label>
                             <div class="input-group">
-                                <input type="text" class="form-control" id="dniRuc" name="dniRuc" required maxlength="20">
+                                <input type="text" class="form-control" id="dniRuc" name="dniRuc" maxlength="11" inputmode="numeric" autocomplete="off">
                                 <button class="btn btn-outline-primary" type="button" id="btnBuscarDni">
                                     <i class="bi bi-search"></i> Consultar
                                 </button>
                             </div>
-                            <div class="invalid-feedback" id="dniRuc-error"></div>
+                            <div class="invalid-feedback d-block" id="dniRuc-error"></div>
                         </div>
 
                         <div class="mb-3">
-                            <label for="nombre" class="form-label small fw-bold">Nombre o Razón Social</label>
-                            <input type="text" class="form-control" id="nombre" name="nombre" required maxlength="100">
-                            <div class="invalid-feedback" id="nombre-error"></div>
+                            <label for="nombre" class="form-label small fw-bold">Nombre Completo</label>
+                            <input type="text" class="form-control" id="nombre" name="nombre" maxlength="100" autocomplete="off">
+                            <div class="invalid-feedback d-block" id="nombre-error"></div>
                         </div>
 
                         <div class="mb-3">
                             <label for="telefono" class="form-label small fw-bold">Teléfono</label>
-                            <input type="text" class="form-control" id="telefono" name="telefono" maxlength="20">
+                            <input type="text" class="form-control" id="telefono" name="telefono" maxlength="9" inputmode="numeric" autocomplete="off">
+                            <div class="invalid-feedback d-block" id="telefono-error"></div>
                         </div>
 
                         <div class="mb-3">
                             <label for="email" class="form-label small fw-bold">Correo Electrónico</label>
-                            <input type="email" class="form-control" id="email" name="email" maxlength="100">
+                            <input type="email" class="form-control" id="email" name="email" maxlength="100" autocomplete="off">
+                            <div class="invalid-feedback d-block" id="email-error"></div>
                         </div>
 
                         <div class="mb-3">

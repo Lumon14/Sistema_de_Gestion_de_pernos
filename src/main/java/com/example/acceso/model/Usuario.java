@@ -16,7 +16,7 @@ public class Usuario {
 
     @NotBlank(message = "El nombre es obligatorio")
     @Size(min = 2, max = 100, message = "El nombre debe tener entre 2 y 100 caracteres")
-    @Pattern(regexp = "^[a-zA-Z]+$", message = "El nombre solo puede contener letras mayúsculas y minúsculas")
+    @Pattern(regexp = "^[\\p{L}\\s]+$", message = "El nombre solo puede contener letras y espacios")
     @Column(nullable = false, length = 100)
     private String nombre;
 

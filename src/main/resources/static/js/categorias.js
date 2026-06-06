@@ -2,6 +2,48 @@ $(document).ready(function() {
     let dataTable;
     const categoriaModal = new bootstrap.Modal(document.getElementById('categoriaModal'));
 
+    const REGEX_NOMBRE = /^[\p{L}\s]+$/u;
+    const MSG_NOMBRE_INVALIDO = 'no se permite caracteres especiales (), @, ", +,-. ';
+
+    function showFieldError(fieldName, message) {
+        $(`#${fieldName}`).addClass('is-invalid');
+        $(`#${fieldName}-error`).text(message);
+    }
+
+    function clearFieldErrors() {
+        $('#formCategoria .form-control').removeClass('is-invalid');
+        $('#formCategoria .invalid-feedback').text('');
+    }
+
+    function validarNombreInput() {
+        const valor = $('#nombre').val();
+        if (valor && !REGEX_NOMBRE.test(valor)) {
+            showFieldError('nombre', MSG_NOMBRE_INVALIDO);
+            return false;
+        }
+        $('#nombre').removeClass('is-invalid');
+        $('#nombre-error').text('');
+        return true;
+    }
+
+    function validateForm() {
+        clearFieldErrors();
+        let hasErrors = false;
+        const nombre = $('#nombre').val().trim();
+
+        if (!nombre) {
+            showFieldError('nombre', 'El nombre es obligatorio');
+            hasErrors = true;
+        } else if (!REGEX_NOMBRE.test(nombre)) {
+            showFieldError('nombre', MSG_NOMBRE_INVALIDO);
+            hasErrors = true;
+        }
+
+        return !hasErrors;
+    }
+
+    $('#nombre').on('input', validarNombreInput);
+
     dataTable = $('#tablaCategorias').DataTable({
         ajax: { url: '/categorias/api/listar', dataSrc: 'data' },
         columns: [
@@ -33,15 +75,21 @@ $(document).ready(function() {
     $('#btnNuevaCategoria').click(() => {
         $('#formCategoria')[0].reset();
         $('#id').val('');
+        clearFieldErrors();
         $('#modalTitle').text('Nueva Categoría');
         categoriaModal.show();
     });
 
     $('#formCategoria').submit(function(e) {
         e.preventDefault();
+
+        if (!validateForm()) {
+            return;
+        }
+
         const data = {
             id: $('#id').val() || null,
-            nombre: $('#nombre').val(),
+            nombre: $('#nombre').val().trim(),
             descripcion: $('#descripcion').val(),
             estado: 1
         };
@@ -58,6 +106,10 @@ $(document).ready(function() {
                 categoriaModal.hide();
                 Swal.fire('Éxito', res.message, 'success');
                 dataTable.ajax.reload();
+            } else if (res.message === MSG_NOMBRE_INVALIDO || res.message === 'El nombre es obligatorio') {
+                showFieldError('nombre', res.message);
+            } else {
+                Swal.fire('Error', res.message, 'error');
             }
         });
     });
@@ -66,6 +118,7 @@ $(document).ready(function() {
         const id = $(this).data('id');
         fetch(`/categorias/api/${id}`).then(res => res.json()).then(res => {
             if (res.success) {
+                clearFieldErrors();
                 $('#id').val(res.data.id);
                 $('#nombre').val(res.data.nombre);
                 $('#descripcion').val(res.data.descripcion);

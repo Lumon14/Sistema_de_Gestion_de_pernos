@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Service
 public class PerfilServiceImpl implements PerfilService {
@@ -33,10 +34,26 @@ public class PerfilServiceImpl implements PerfilService {
         return perfilRepository.findAll();
     }
 
+    private static final String MSG_NOMBRE_INVALIDO = "no se permite caracteres especiales (), @, \", +,-. ";
+    private static final Pattern REGEX_NOMBRE = Pattern.compile("^[\\p{L}\\s]+$");
+
     @Override
     @Transactional
     public Perfil guardarPerfil(Perfil perfil) {
+        if (perfil.getNombre() != null) {
+            validarNombre(perfil.getNombre());
+            perfil.setNombre(perfil.getNombre().trim());
+        }
         return perfilRepository.save(perfil);
+    }
+
+    private void validarNombre(String nombre) {
+        if (nombre.trim().isEmpty()) {
+            throw new IllegalArgumentException("El nombre es obligatorio");
+        }
+        if (!REGEX_NOMBRE.matcher(nombre.trim()).matches()) {
+            throw new IllegalArgumentException(MSG_NOMBRE_INVALIDO);
+        }
     }
 
     @Override

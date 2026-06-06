@@ -20,6 +20,14 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     boolean existsByCorreo(String correo);
 
+    boolean existsByNombreIgnoreCase(String nombre);
+
+    boolean existsByNombreIgnoreCaseAndIdNot(String nombre, Long id);
+
+    boolean existsByUsuarioAndIdNot(String usuario, Long id);
+
+    boolean existsByCorreoAndIdNot(String correo, Long id);
+
     // Métodos para el borrado lógico
     List<Usuario> findAllByEstadoNot(Integer estado);
 

@@ -28,9 +28,12 @@ public class Producto {
     private Proveedor proveedor;
 
     @Column(nullable = false, columnDefinition = "NUMERIC(10,2)")
+    private Double precio;
+
+    @Column(name = "precio_venta", nullable = false, columnDefinition = "NUMERIC(10,2)")
     private Double precioVenta;
 
-    @Column(columnDefinition = "NUMERIC(10,2)")
+    @Column(name = "precio_compra", columnDefinition = "NUMERIC(10,2)")
     private Double precioCompra;
 
     @Column(columnDefinition = "integer default 0")
@@ -54,5 +57,17 @@ public class Producto {
     @PrePersist
     protected void onCreate() {
         fechaRegistro = java.time.LocalDateTime.now();
+        syncPrecio();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        syncPrecio();
+    }
+
+    private void syncPrecio() {
+        if (precioVenta != null) {
+            precio = precioVenta;
+        }
     }
 }

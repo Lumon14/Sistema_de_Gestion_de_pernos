@@ -94,6 +94,10 @@ public class UsuarioController {
             response.put("message",
                     usuario.getId() != null ? "Usuario actualizado correctamente" : "Usuario creado correctamente");
             return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         } catch (Exception e) {
             // Captura cualquier excepción del servicio (ej. usuario duplicado) y la
             // devuelve como error.

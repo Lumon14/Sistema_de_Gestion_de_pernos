@@ -45,6 +45,10 @@ public class CategoriaController {
             response.put("data", guardada);
             response.put("message", "Categoría guardada correctamente");
             return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         } catch (Exception e) {
             response.put("success", false);
             response.put("message", "Error al guardar: " + e.getMessage());

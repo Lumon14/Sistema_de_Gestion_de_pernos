@@ -1,6 +1,68 @@
 $(document).ready(function() {
     let dataTable;
     const productoModal = new bootstrap.Modal(document.getElementById('productoModal'));
+    const placeholderImg = window.PRODUCT_PLACEHOLDER || '/images/products/placeholder.svg';
+
+    function parseJsonResponse(res) {
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            throw new Error('El servidor devolvió una respuesta inesperada. ¿Sesión expirada?');
+        }
+        return res.json();
+    }
+
+    const MSG_NUMERO_NEGATIVO = 'El número ingresado es negativo, ingrese uno positivo';
+    const CAMPOS_NUMERICOS = ['precioCompra', 'precioVenta', 'stock', 'stockMinimo'];
+
+    function showFieldError(fieldName, message) {
+        $(`#${fieldName}`).addClass('is-invalid');
+        $(`#${fieldName}-error`).text(message);
+    }
+
+    function clearFieldErrors() {
+        $('#formProducto .form-control').removeClass('is-invalid');
+        $('#formProducto .invalid-feedback').text('');
+    }
+
+    function esNumeroNegativo(valor) {
+        return valor !== '' && !isNaN(parseFloat(valor)) && parseFloat(valor) < 0;
+    }
+
+    function validarNumeroNegativo(fieldId) {
+        const valor = $(`#${fieldId}`).val();
+        if (esNumeroNegativo(valor)) {
+            showFieldError(fieldId, MSG_NUMERO_NEGATIVO);
+            return false;
+        }
+        $(`#${fieldId}`).removeClass('is-invalid');
+        $(`#${fieldId}-error`).text('');
+        return true;
+    }
+
+    function validateForm() {
+        clearFieldErrors();
+        let hasErrors = false;
+
+        CAMPOS_NUMERICOS.forEach((campo) => {
+            if (!validarNumeroNegativo(campo)) {
+                hasErrors = true;
+            }
+        });
+
+        const precioVentaVal = $('#precioVenta').val();
+        if (precioVentaVal === '' || isNaN(parseFloat(precioVentaVal))) {
+            showFieldError('precioVenta', 'El precio de venta es obligatorio');
+            hasErrors = true;
+        }
+
+        return !hasErrors;
+    }
+
+    CAMPOS_NUMERICOS.forEach((campo) => {
+        $(`#${campo}`).on('input', function() {
+            validarNumeroNegativo(this.id);
+        });
+    });
 
     dataTable = $('#tablaProductos').DataTable({
         ajax: { url: '/productos/api/listar', dataSrc: 'data' },
@@ -10,7 +72,7 @@ $(document).ready(function() {
                 data: 'imagen',
                 render: (data) => data 
                     ? `<img src="${data}?t=${new Date().getTime()}" class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;">`
-                    : `<img src="/images/products/placeholder.jpg" class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;">`
+                    : `<img src="${placeholderImg}" class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;">`
             },
             { data: 'nombre', className: 'fw-bold text-primary' },
             { data: 'descripcion', className: 'small text-muted', defaultContent: '—' },
@@ -45,7 +107,7 @@ $(document).ready(function() {
             }
         ],
         dom: 'rtip', // Hide default search bar to use custom one
-        language: { url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json" }
+        language: window.DATATABLES_ES
     });
 
     // Custom Search
@@ -56,7 +118,7 @@ $(document).ready(function() {
     const urlParams = new URLSearchParams(window.location.search);
     const editId = urlParams.get('edit');
     if (editId) {
-        fetch(`/productos/api/${editId}`).then(res => res.json()).then(res => {
+        fetch(`/productos/api/${editId}`).then(parseJsonResponse).then(res => {
             if (res.success) {
                 const p = res.data;
                 $('#id').val(p.id);
@@ -79,6 +141,8 @@ $(document).ready(function() {
     $('#btnNuevoProducto').click(() => {
         $('#formProducto')[0].reset();
         $('#id').val('');
+        $('#imagenFile').val('');
+        clearFieldErrors();
         $('#imagePreview').hide().find('img').attr('src', '');
         $('.modal-title').text('Nuevo Producto');
         productoModal.show();
@@ -100,15 +164,20 @@ $(document).ready(function() {
 
     $('#formProducto').submit(function(e) {
         e.preventDefault();
+
+        if (!validateForm()) {
+            return;
+        }
         
+        const idVal = $('#id').val();
         const productoData = {
-            id: $('#id').val() || null,
+            id: idVal ? parseInt(idVal, 10) : null,
             nombre: $('#nombre').val(),
             categoria: { id: $('#id_categoria').val() },
-            precioCompra: $('#precioCompra').val(),
-            precioVenta: $('#precioVenta').val(),
-            stock: $('#stock').val(),
-            stockMinimo: $('#stockMinimo').val(),
+            precioCompra: $('#precioCompra').val() !== '' ? parseFloat($('#precioCompra').val()) : null,
+            precioVenta: parseFloat($('#precioVenta').val()),
+            stock: parseInt($('#stock').val(), 10) || 0,
+            stockMinimo: parseInt($('#stockMinimo').val(), 10) || 0,
             descripcion: $('#descripcion').val(),
             estado: 1
         };
@@ -127,20 +196,26 @@ $(document).ready(function() {
                 ...getCsrfHeaders()
             },
             body: formData
-        }).then(res => res.json()).then(res => {
+        }).then(parseJsonResponse).then(res => {
             if (res.success) {
                 productoModal.hide();
                 Swal.fire('Éxito', res.message, 'success');
                 dataTable.ajax.reload();
             } else {
-                Swal.fire('Error', res.message, 'error');
+                if (res.message === MSG_NUMERO_NEGATIVO) {
+                    CAMPOS_NUMERICOS.forEach((campo) => validarNumeroNegativo(campo));
+                } else {
+                    Swal.fire('Error', res.message, 'error');
+                }
             }
+        }).catch(err => {
+            Swal.fire('Error', err.message || 'No se pudo guardar el producto', 'error');
         });
     });
 
     $('#tablaProductos').on('click', '.btn-edit-row', function() {
         const id = $(this).data('id');
-        fetch(`/productos/api/${id}`).then(res => res.json()).then(res => {
+        fetch(`/productos/api/${id}`).then(parseJsonResponse).then(res => {
             if (res.success) {
                 const p = res.data;
                 $('#id').val(p.id);
@@ -158,6 +233,7 @@ $(document).ready(function() {
                     $('#imagePreview').hide();
                 }
 
+                clearFieldErrors();
                 $('.modal-title').text('Editar Producto');
                 productoModal.show();
             }
@@ -179,11 +255,13 @@ $(document).ready(function() {
                     method: 'DELETE',
                     headers: getCsrfHeaders()
                 })
-                    .then(res => res.json()).then(res => {
+                    .then(parseJsonResponse).then(res => {
                         if (res.success) {
                             Swal.fire('Eliminado', res.message, 'success');
                             dataTable.ajax.reload();
                         }
+                    }).catch(err => {
+                        Swal.fire('Error', err.message || 'No se pudo eliminar el producto', 'error');
                     });
             }
         });
@@ -192,7 +270,7 @@ $(document).ready(function() {
     // Ver Detalles
     $('#tablaProductos').on('click', '.btn-view-row', function() {
         const id = $(this).data('id');
-        fetch(`/productos/api/${id}`).then(res => res.json()).then(res => {
+        fetch(`/productos/api/${id}`).then(parseJsonResponse).then(res => {
             if (res.success) {
                 const p = res.data;
                 let html = `
@@ -208,7 +286,7 @@ $(document).ready(function() {
                 Swal.fire({
                     title: p.nombre,
                     html: html,
-                    imageUrl: p.imagen || '/images/products/placeholder.jpg',
+                    imageUrl: p.imagen || placeholderImg,
                     imageWidth: 200,
                     imageHeight: 200,
                     imageAlt: p.nombre,
@@ -220,7 +298,7 @@ $(document).ready(function() {
     // Cambiar Estado (Activar/Inactivar)
     $('#tablaProductos').on('click', '.btn-status-row', function() {
         const id = $(this).data('id');
-        fetch(`/productos/api/${id}`).then(res => res.json()).then(res => {
+        fetch(`/productos/api/${id}`).then(parseJsonResponse).then(res => {
             if (res.success) {
                 const p = res.data;
                 const nuevoEstado = p.estado === 1 ? 2 : 1; // 1: Activo, 2: Inactivo
@@ -233,11 +311,13 @@ $(document).ready(function() {
                     method: 'POST',
                     headers: getCsrfHeaders(),
                     body: formData
-                }).then(res => res.json()).then(res => {
+                }).then(parseJsonResponse).then(res => {
                     if (res.success) {
                         Swal.fire('Estado actualizado', res.message, 'success');
                         dataTable.ajax.reload();
                     }
+                }).catch(err => {
+                    Swal.fire('Error', err.message || 'No se pudo cambiar el estado', 'error');
                 });
             }
         });

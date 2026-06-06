@@ -1,7 +1,3 @@
-/**
- * Script para la gestión de usuarios con Bootstrap 5
- * Archivo: src/main/resources/static/js/usuarios.js
- */
 
 $(document).ready(function() {
     // Variables globales
@@ -42,8 +38,8 @@ $(document).ready(function() {
             processing: true,
             ajax: {
                 url: ENDPOINTS.list,
-                dataSrc: 'data' // La propiedad en la respuesta JSON que contiene el array de usuarios
-            },
+                dataSrc: 'data' 
+                        },
             columns: [
                 { data: 'id' },
                 { data: 'nombre' },
@@ -100,20 +96,30 @@ $(document).ready(function() {
         `;
     }
 
-    const REGEX_SOLO_LETRAS = /^[a-zA-Z]+$/;
-    const MSG_SOLO_LETRAS = 'Solo se permiten letras mayúsculas y minúsculas';
+    const REGEX_NOMBRE = /^[\p{L}\s]+$/u;
+    const REGEX_USUARIO = /^[a-zA-Z]+$/;
+    const MSG_NOMBRE_INVALIDO = 'Solo se permiten letras y espacios';
+    const MSG_USUARIO_INVALIDO = 'Solo se permiten letras mayúsculas y minúsculas';
 
     /**
      * Muestra aviso si el campo contiene caracteres no permitidos (sin bloquear la escritura)
      */
     function setupSoloLetrasInputs() {
-        $('#nombre, #usuario').on('input', function() {
-            const fieldName = this.id;
-            if (this.value && /[^a-zA-Z]/.test(this.value)) {
-                showFieldError(fieldName, MSG_SOLO_LETRAS);
+        $('#nombre').on('input', function() {
+            if (this.value && !REGEX_NOMBRE.test(this.value)) {
+                showFieldError('nombre', MSG_NOMBRE_INVALIDO);
             } else {
-                $(`#${fieldName}`).removeClass('is-invalid');
-                $(`#${fieldName}-error`).text('');
+                $('#nombre').removeClass('is-invalid');
+                $('#nombre-error').text('');
+            }
+        });
+
+        $('#usuario').on('input', function() {
+            if (this.value && !REGEX_USUARIO.test(this.value)) {
+                showFieldError('usuario', MSG_USUARIO_INVALIDO);
+            } else {
+                $('#usuario').removeClass('is-invalid');
+                $('#usuario-error').text('');
             }
         });
     }
@@ -124,8 +130,6 @@ $(document).ready(function() {
     function setupEventListeners() {
         // Botón nuevo registro
         $('#btnNuevoRegistro').on('click', openModalForNew);
-
-        // No es necesario un listener para cerrar el modal, Bootstrap lo maneja con data-bs-dismiss
 
         // Submit form
         $('#formUsuario').on('submit', function(e) {
@@ -143,8 +147,6 @@ $(document).ready(function() {
      * Carga la lista de usuarios desde el backend y redibuja la tabla
      */
     function loadUsuarios() {
-        // DataTables se encarga de la carga y el indicador de "processing"
-        // Simplemente recargamos los datos desde la fuente AJAX
         dataTable.ajax.reload();
     }
 
@@ -214,12 +216,23 @@ $(document).ready(function() {
                 loadUsuarios(); // Recargar la tabla
             } else {
                 if (data.errors) {
-                    // Mostrar errores de validación del servidor
                     Object.keys(data.errors).forEach(field => {
                         showFieldError(field, data.errors[field]);
                     });
+                } else if (data.message) {
+                    const mensajeDuplicado = obtenerMensajeDuplicado(data.message);
+                    if (mensajeDuplicado) {
+                        showFieldError(mensajeDuplicado.campo, mensajeDuplicado.mensaje);
+                    } else {
+                        const campo = detectarCampoError(data.message);
+                        if (campo) {
+                            showFieldError(campo, data.message);
+                        } else {
+                            showNotification(data.message, 'error');
+                        }
+                    }
                 } else {
-                    showNotification(data.message, 'error');
+                    showNotification('Error al guardar usuario', 'error');
                 }
             }
         })
@@ -300,7 +313,6 @@ $(document).ready(function() {
      */
     function handleDelete(e) {
         e.preventDefault();
-
         const id = $(this).data('id');
 
         Swal.fire({
@@ -407,8 +419,8 @@ $(document).ready(function() {
         } else if (formData.nombre.length < 2) {
             showFieldError('nombre', 'El nombre debe tener al menos 2 caracteres');
             hasErrors = true;
-        } else if (!REGEX_SOLO_LETRAS.test(formData.nombre)) {
-            showFieldError('nombre', MSG_SOLO_LETRAS);
+        } else if (!REGEX_NOMBRE.test(formData.nombre)) {
+            showFieldError('nombre', MSG_NOMBRE_INVALIDO);
             hasErrors = true;
         }
 
@@ -418,8 +430,8 @@ $(document).ready(function() {
         } else if (formData.usuario.length < 3) {
             showFieldError('usuario', 'El usuario debe tener al menos 3 caracteres');
             hasErrors = true;
-        } else if (!REGEX_SOLO_LETRAS.test(formData.usuario)) {
-            showFieldError('usuario', MSG_SOLO_LETRAS);
+        } else if (!REGEX_USUARIO.test(formData.usuario)) {
+            showFieldError('usuario', MSG_USUARIO_INVALIDO);
             hasErrors = true;
         }
 
@@ -445,6 +457,52 @@ $(document).ready(function() {
         }
 
         return !hasErrors;
+    }
+
+    /**
+     * Mensajes exactos para duplicados
+     */
+    const MENSAJES_DUPLICADOS = {
+        nombre: 'Error: Nombre existente, ingrese otro nombre',
+        usuario: 'Error: Usuario existente, ingrese otro usuario',
+        correo: 'Error: Correo existente, ingrese otro correo'
+    };
+
+    /**
+     * Detecta si el mensaje es de duplicado y devuelve campo + mensaje exacto
+     */
+    function obtenerMensajeDuplicado(message) {
+        const msg = message.toLowerCase();
+        if (msg.includes('nombre existente') || msg.includes('nombre existen')) {
+            return { campo: 'nombre', mensaje: MENSAJES_DUPLICADOS.nombre };
+        }
+        if (msg.includes('usuario existente') || msg.includes('usuario existen')) {
+            return { campo: 'usuario', mensaje: MENSAJES_DUPLICADOS.usuario };
+        }
+        if (msg.includes('correo existente') || msg.includes('correo existen')) {
+            return { campo: 'correo', mensaje: MENSAJES_DUPLICADOS.correo };
+        }
+        return null;
+    }
+
+    /**
+     * Detecta el campo asociado a un mensaje de error del servidor
+     */
+    function detectarCampoError(message) {
+        const msg = message.toLowerCase();
+        if (msg.includes('nombre existen') || msg.includes('nombre existente') || msg.includes('nombre solo puede') || msg.includes('nombre es obligatorio') || msg.includes('nombre debe')) {
+            return 'nombre';
+        }
+        if (msg.includes('usuario existen') || msg.includes('usuario existente') || msg.includes('usuario solo puede') || msg.includes('usuario es obligatorio') || msg.includes('usuario debe')) {
+            return 'usuario';
+        }
+        if (msg.includes('correo existen') || msg.includes('correo existente') || msg.includes('correo es obligatorio') || msg.includes('correo debe')) {
+            return 'correo';
+        }
+        if (msg.includes('contraseña') || msg.includes('clave')) {
+            return 'clave';
+        }
+        return null;
     }
 
     /**

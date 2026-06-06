@@ -75,9 +75,6 @@ public class ClienteController {
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
             result.put("nombre", c.getNombre());
-            result.put("telefono", c.getTelefono());
-            result.put("email", c.getEmail());
-            result.put("direccion", c.getDireccion());
             result.put("origen", "registro_local");
             result.put("message", "Cliente encontrado en el sistema");
             return ResponseEntity.ok(result);

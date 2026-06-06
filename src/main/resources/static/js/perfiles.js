@@ -28,6 +28,36 @@ $(document).ready(function() {
 
     // Event Listeners
     setupEventListeners();
+    setupNombreInput();
+
+    const REGEX_NOMBRE = /^[\p{L}\s]+$/u;
+    const MSG_NOMBRE_INVALIDO = 'no se permite caracteres especiales (), @, ", +,-. ';
+
+    function setupNombreInput() {
+        $('#nombre').on('input', function() {
+            if (this.value && !REGEX_NOMBRE.test(this.value)) {
+                showFieldError('nombre', MSG_NOMBRE_INVALIDO);
+            } else {
+                $('#nombre').removeClass('is-invalid');
+                $('#nombre-error').text('');
+            }
+        });
+    }
+
+    function validateForm() {
+        clearFieldErrors();
+        const nombre = $('#nombre').val().trim();
+
+        if (!nombre) {
+            showFieldError('nombre', 'El nombre es obligatorio');
+            return false;
+        }
+        if (!REGEX_NOMBRE.test(nombre)) {
+            showFieldError('nombre', MSG_NOMBRE_INVALIDO);
+            return false;
+        }
+        return true;
+    }
 
     /**
      * Inicializa DataTable
@@ -113,16 +143,15 @@ $(document).ready(function() {
      * Guarda un perfil (crear o actualizar)
      */
     function savePerfil() {
+        if (!validateForm()) {
+            return;
+        }
+
         const perfilData = {
             id: $('#id').val() || null,
             nombre: $('#nombre').val().trim(),
             descripcion: $('#descripcion').val().trim(),
         };
-
-        if (!perfilData.nombre) {
-            showFieldError('nombre', 'El nombre es obligatorio');
-            return;
-        }
 
         showLoading(true);
         fetch(ENDPOINTS.save, {
@@ -140,7 +169,11 @@ $(document).ready(function() {
                 showNotification(data.message, 'success');
                 reloadTable();
             } else {
-                showNotification(data.message, 'error');
+                if (data.message === MSG_NOMBRE_INVALIDO || data.message === 'El nombre es obligatorio') {
+                    showFieldError('nombre', data.message);
+                } else {
+                    showNotification(data.message, 'error');
+                }
             }
         })
         .catch(error => showNotification('Error de conexión', 'error'))
@@ -350,8 +383,8 @@ $(document).ready(function() {
     }
 
     function clearFieldErrors() {
-        $('.form-control').removeClass('is-invalid');
-        $('.invalid-feedback').text('');
+        $('#formPerfil .form-control').removeClass('is-invalid');
+        $('#formPerfil .invalid-feedback').text('');
     }
 
     // Funciones de UI (notificaciones, loading) - Reutilizar o copiar de usuarios.js

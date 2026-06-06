@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Service
 public class CategoriaService {
@@ -30,6 +31,8 @@ public class CategoriaService {
 
     @Transactional
     public Categoria guardar(Categoria categoria) {
+        validarNombre(categoria.getNombre());
+
         if (categoria.getId() != null) {
             return categoriaRepository.findById(categoria.getId()).map(existing -> {
                 existing.setNombre(categoria.getNombre());
@@ -53,5 +56,17 @@ public class CategoriaService {
             c.setEstado(0); // Borrado lógico
             categoriaRepository.save(c);
         });
+    }
+
+    private static final String MSG_NOMBRE_INVALIDO = "no se permite caracteres especiales (), @, \", +,-. ";
+    private static final Pattern REGEX_NOMBRE = Pattern.compile("^[\\p{L}\\s]+$");
+
+    private void validarNombre(String nombre) {
+        if (nombre == null || nombre.trim().isEmpty()) {
+            throw new IllegalArgumentException("El nombre es obligatorio");
+        }
+        if (!REGEX_NOMBRE.matcher(nombre.trim()).matches()) {
+            throw new IllegalArgumentException(MSG_NOMBRE_INVALIDO);
+        }
     }
 }

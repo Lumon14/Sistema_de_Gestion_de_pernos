@@ -30,4 +30,7 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
             "WHERE dv.id_producto = :idProducto " +
             "ORDER BY v.fecha DESC", nativeQuery = true)
     List<Map<String, Object>> obtenerHistorialDeVentasPorProducto(@Param("idProducto") Long idProducto);
+
+    @Query(value = "SELECT setval('productos_id_seq', COALESCE((SELECT MAX(id) FROM productos), 1))", nativeQuery = true)
+    Long syncIdSequence();
 }

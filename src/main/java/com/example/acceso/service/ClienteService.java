@@ -3,16 +3,24 @@ package com.example.acceso.service;
 import com.example.acceso.model.Cliente;
 import com.example.acceso.repository.ClienteRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 @Service
 public class ClienteService {
     private final ClienteRepository clienteRepository;
+
+    private static final String MSG_DNI_RUC_INVALIDO = "ingrese un dni o ruc valido";
+    private static final String MSG_TELEFONO_INVALIDO = "ingrese un teléfono valido";
+    private static final String MSG_CORREO_INVALIDO = "Ingrese un correo válido con @ y .com";
+    private static final Pattern REGEX_SOLO_DIGITOS = Pattern.compile("^\\d+$");
+    private static final Pattern REGEX_CORREO = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.com$", Pattern.CASE_INSENSITIVE);
 
     public ClienteService(ClienteRepository clienteRepository) {
         this.clienteRepository = clienteRepository;
@@ -34,11 +42,53 @@ public class ClienteService {
         return clienteRepository.findByDniRuc(dniRuc);
     }
 
+    @Transactional
     public Cliente guardar(Cliente cliente) {
+        validarCliente(cliente);
+
         if (cliente.getEstado() == null) {
             cliente.setEstado(1);
         }
         return clienteRepository.save(cliente);
+    }
+
+    private void validarCliente(Cliente cliente) {
+        if (cliente.getDniRuc() == null || cliente.getDniRuc().trim().isEmpty()) {
+            throw new IllegalArgumentException("El DNI o RUC es obligatorio");
+        }
+        String dniRuc = cliente.getDniRuc().trim();
+        if (!REGEX_SOLO_DIGITOS.matcher(dniRuc).matches()
+                || (dniRuc.length() != 8 && dniRuc.length() != 11)) {
+            throw new IllegalArgumentException(MSG_DNI_RUC_INVALIDO);
+        }
+        cliente.setDniRuc(dniRuc);
+
+        if (cliente.getNombre() == null || cliente.getNombre().trim().isEmpty()) {
+            throw new IllegalArgumentException("El nombre completo es obligatorio");
+        }
+        cliente.setNombre(cliente.getNombre().trim());
+
+        if (cliente.getTelefono() == null || cliente.getTelefono().trim().isEmpty()) {
+            throw new IllegalArgumentException("El teléfono es obligatorio");
+        }
+        String telefono = cliente.getTelefono().trim();
+        if (!REGEX_SOLO_DIGITOS.matcher(telefono).matches() || telefono.length() != 9) {
+            throw new IllegalArgumentException(MSG_TELEFONO_INVALIDO);
+        }
+        cliente.setTelefono(telefono);
+
+        if (cliente.getEmail() == null || cliente.getEmail().trim().isEmpty()) {
+            throw new IllegalArgumentException("El correo es obligatorio");
+        }
+        String email = cliente.getEmail().trim();
+        if (!REGEX_CORREO.matcher(email).matches()) {
+            throw new IllegalArgumentException(MSG_CORREO_INVALIDO);
+        }
+        cliente.setEmail(email);
+
+        if (cliente.getDireccion() != null) {
+            cliente.setDireccion(cliente.getDireccion().trim());
+        }
     }
 
     public static class ResultadoCliente {

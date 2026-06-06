@@ -29,35 +29,65 @@ public class ProductoService {
         return productoRepository.findById(id);
     }
 
+    private static final String MSG_NUMERO_NEGATIVO = "El número ingresado es negativo, ingrese uno positivo";
+
     @Transactional
     public Producto guardar(Producto producto) {
+        validarValoresNumericos(producto);
+
         if (producto.getId() != null) {
-            return productoRepository.findById(producto.getId()).map(existing -> {
-                existing.setNombre(producto.getNombre());
-                existing.setDescripcion(producto.getDescripcion());
-                if (producto.getCategoria() != null) {
-                    existing.setCategoria(producto.getCategoria());
-                }
-                if (producto.getProveedor() != null) {
-                    existing.setProveedor(producto.getProveedor());
-                }
-                existing.setPrecioCompra(producto.getPrecioCompra());
-                existing.setPrecioVenta(producto.getPrecioVenta());
-                existing.setStock(producto.getStock());
-                existing.setStockMinimo(producto.getStockMinimo());
-                if (producto.getImagen() != null) {
-                    existing.setImagen(producto.getImagen());
-                }
-                if (producto.getEstado() != null) {
-                    existing.setEstado(producto.getEstado());
-                }
-                return productoRepository.save(existing);
-            }).orElseGet(() -> productoRepository.save(producto));
+            return productoRepository.findById(producto.getId())
+                    .map(existing -> {
+                        existing.setNombre(producto.getNombre());
+                        existing.setDescripcion(producto.getDescripcion());
+                        if (producto.getCategoria() != null) {
+                            existing.setCategoria(producto.getCategoria());
+                        }
+                        if (producto.getProveedor() != null) {
+                            existing.setProveedor(producto.getProveedor());
+                        }
+                        existing.setPrecioCompra(producto.getPrecioCompra());
+                        existing.setPrecioVenta(producto.getPrecioVenta());
+                        if (producto.getPrecioVenta() != null) {
+                            existing.setPrecio(producto.getPrecioVenta());
+                        }
+                        existing.setStock(producto.getStock());
+                        existing.setStockMinimo(producto.getStockMinimo());
+                        if (producto.getImagen() != null) {
+                            existing.setImagen(producto.getImagen());
+                        }
+                        if (producto.getEstado() != null) {
+                            existing.setEstado(producto.getEstado());
+                        }
+                        return productoRepository.save(existing);
+                    })
+                    .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado"));
         }
+
+        producto.setId(null);
+        productoRepository.syncIdSequence();
         if (producto.getEstado() == null) {
             producto.setEstado(1);
         }
+        if (producto.getPrecioVenta() != null) {
+            producto.setPrecio(producto.getPrecioVenta());
+        }
         return productoRepository.save(producto);
+    }
+
+    private void validarValoresNumericos(Producto producto) {
+        if (producto.getPrecioCompra() != null && producto.getPrecioCompra() < 0) {
+            throw new IllegalArgumentException(MSG_NUMERO_NEGATIVO);
+        }
+        if (producto.getPrecioVenta() != null && producto.getPrecioVenta() < 0) {
+            throw new IllegalArgumentException(MSG_NUMERO_NEGATIVO);
+        }
+        if (producto.getStock() != null && producto.getStock() < 0) {
+            throw new IllegalArgumentException(MSG_NUMERO_NEGATIVO);
+        }
+        if (producto.getStockMinimo() != null && producto.getStockMinimo() < 0) {
+            throw new IllegalArgumentException(MSG_NUMERO_NEGATIVO);
+        }
     }
 
     @Transactional

@@ -67,6 +67,10 @@ public class PerfilController {
             response.put("message", perfil.getId() != null ? "Perfil actualizado" : "Perfil creado");
             response.put("perfil", perfilGuardado);
             return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         } catch (Exception e) {
             response.put("success", false);
             response.put("message", "Error al guardar el perfil: " + e.getMessage());
