@@ -103,4 +103,42 @@ $(document).ready(function() {
         };
         document.body.appendChild(script);
     }
+
+    // Restricción global para evitar símbolos negativos, positivos y notación científica en campos numéricos
+    $(document).on('keydown', 'input[type="number"]', function(e) {
+        // Bloquear explícitamente el signo menos, el signo más, la 'e' y la 'E'
+        if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E') {
+            e.preventDefault();
+            return;
+        }
+
+        // Si se presiona punto o coma, permitir solo uno en el input
+        if (e.key === '.' || e.key === ',') {
+            if (e.key === ',') {
+                e.preventDefault();
+                const start = this.selectionStart;
+                const end = this.selectionEnd;
+                const val = $(this).val();
+                $(this).val(val.slice(0, start) + '.' + val.slice(end));
+                this.setSelectionRange(start + 1, start + 1);
+            }
+            if ($(this).val().includes('.')) {
+                e.preventDefault();
+            }
+        }
+    });
+
+    $(document).on('input paste', 'input[type="number"]', function() {
+        let $input = $(this);
+        setTimeout(() => {
+            let rawVal = $input.val();
+            if (rawVal) {
+                // Eliminar cualquier signo negativo/positivo o letra e/E que haya sido copiado y pegado
+                let cleanVal = rawVal.toString().replace(/[-+eE]/g, '');
+                if (cleanVal !== rawVal) {
+                    $input.val(cleanVal);
+                }
+            }
+        }, 0);
+    });
 });

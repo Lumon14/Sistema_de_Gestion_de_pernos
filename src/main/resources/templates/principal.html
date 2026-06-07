@@ -25,7 +25,7 @@
                         <i class="bi bi-telephone-fill"></i> +51 968 871 577
                     </div>
                     <div class="social-icons">
-                        <a href="#" class="text-white me-3"><i class="bi bi-whatsapp"></i></a>
+                        <a href="https://wa.me/51968871577" target="_blank" class="text-white me-3"><i class="bi bi-whatsapp"></i></a>
                         <a href="#" class="text-white me-3"><i class="bi bi-facebook"></i></a>
                         <a href="#" class="text-white me-3"><i class="bi bi-instagram"></i></a>
                         <a href="#" class="text-white"><i class="bi bi-globe"></i></a>
@@ -62,13 +62,13 @@
                                 </ul>
                             </li>
                             <li class="nav-item"><a class="nav-link px-3 py-4" th:href="@{/catalogo}">CATÁLOGO</a></li>
-                            <li class="nav-item"><a class="nav-link px-3 py-4" href="#">CONTACTANOS</a></li>
+                            <li class="nav-item"><a class="nav-link px-3 py-4" href="#contacto">CONTACTANOS</a></li>
                             <li class="nav-item"><a class="nav-link px-3 py-4" th:href="@{/login}">INGRESAR</a></li>
                         </ul>
 
                         <!-- Buscador -->
-                        <form class="d-flex position-relative">
-                            <input class="form-control rounded-pill pe-5" type="search" placeholder="Search">
+                        <form class="d-flex position-relative" action="/catalogo" method="get">
+                            <input class="form-control rounded-pill pe-5" type="search" name="q" placeholder="Search">
                             <button class="btn position-absolute end-0 border-0" type="submit">
                                 <i class="bi bi-search"></i>
                             </button>
@@ -94,12 +94,12 @@
                 Variedad de medidas para toda industria · Calidad Garantizada · Stock Disponible
             </p>
             <div class="hero-buttons">
-                <button class="btn btn-warning btn-lg">
+                <a th:href="@{/catalogo}" class="btn btn-warning btn-lg">
                     <i class="bi bi-list"></i> VER CATÁLOGO
-                </button>
-                <button class="btn btn-outline-light btn-lg">
+                </a>
+                <a href="https://wa.me/51968871577?text=Hola%20Pernos%20Vega,%20deseo%20realizar%20una%20consulta." target="_blank" class="btn btn-outline-light btn-lg">
                     <i class="bi bi-whatsapp"></i> CONTÁCTANOS POR WHATSAPP
-                </button>
+                </a>
             </div>
         </div>
     </section>
@@ -207,7 +207,7 @@
     </section>
 
     <!--Footer-->
-    <footer class="footer-container">
+    <footer id="contacto" class="footer-container">
         <div class="footer-content">
             <!-- Logo/Título -->
             <h2 class="footer-logo">PernosVega.com</h2>
@@ -216,14 +216,14 @@
             <ul class="footer-nav">
                 <li><a href="/">INICIO</a></li>
                 <li><a href="/catalogo">CATÁLOGO</a></li>
-                <li><a href="#">CONTACTANOS</a></li>
+                <li><a href="#contacto">CONTACTANOS</a></li>
                 <li><a href="/login">INGRESAR</a></li>
 
             </ul>
 
             <!-- Redes Sociales -->
             <div class="footer-socials">
-                <a href="#" class="social-icon"><i class="bi bi-whatsapp"></i></a>
+                <a href="https://wa.me/51968871577" target="_blank" class="social-icon"><i class="bi bi-whatsapp"></i></a>
                 <a href="#" class="social-icon"><i class="bi bi-facebook"></i></a>
                 <a href="#" class="social-icon"><i class="bi bi-instagram"></i></a>
             </div>

@@ -77,6 +77,9 @@ $(document).ready(function () {
 
                         if (row.estado === 'PENDIENTE') {
                             buttons += `
+                                <button class="btn-action btn-edit action-edit" data-id="${row.id}" title="Editar Pedido">
+                                    <i class="bi bi-pencil-fill"></i>
+                                </button>
                                 <button class="btn-action btn-status action-approve" data-id="${row.id}" title="Aprobar y Generar Venta">
                                     <i class="bi bi-check-lg"></i>
                                 </button>
@@ -115,6 +118,11 @@ $(document).ready(function () {
         $('#tablaPedidos tbody').on('click', '.action-cancel', function () {
             const id = $(this).data('id');
             confirmarCancelacion(id);
+        });
+        
+        $('#tablaPedidos tbody').on('click', '.action-edit', function () {
+            const id = $(this).data('id');
+            abrirEditarPedido(id);
         });
     }
 
@@ -293,6 +301,182 @@ $(document).ready(function () {
     window.executeCancelFromModal = function (id) {
         confirmarCancelacion(id);
     };
+
+    let editarPedidoModal;
+    if (document.getElementById('editarPedidoModal')) {
+        editarPedidoModal = new bootstrap.Modal(document.getElementById('editarPedidoModal'));
+    }
+
+    let editItems = [];
+    let listadoProductos = [];
+
+    function cargarProductosParaEdicion() {
+        if (listadoProductos.length > 0) {
+            return Promise.resolve(listadoProductos);
+        }
+        return fetch('/productos/api/listar')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    listadoProductos = data.data;
+                    const sel = $('#editPedidoSelectProducto');
+                    sel.empty().append('<option value="">Seleccione producto...</option>');
+                    listadoProductos.forEach(p => {
+                        sel.append(`<option value="${p.id}" data-precio="${p.precioVenta}" data-nombre="${p.nombre}">${p.nombre} (S/. ${p.precioVenta.toFixed(2)})</option>`);
+                    });
+                }
+                return listadoProductos;
+            });
+    }
+
+    function abrirEditarPedido(id) {
+        const pedido = findPedidoLocal(id);
+        if (!pedido) return;
+
+        $('#editPedidoId').val(pedido.id);
+        $('#editPedidoIdLabel').text(pedido.id);
+
+        const c = pedido.cliente || {};
+        $('#editPedidoDniRuc').val(c.dniRuc || '');
+        $('#editPedidoNombre').val(c.nombre || '');
+        $('#editPedidoTelefono').val(c.telefono || '');
+        $('#editPedidoEmail').val(c.email || '');
+        $('#editPedidoDireccion').val(c.direccion || '');
+
+        editItems = pedido.detalles.map(d => ({
+            productoId: d.producto.id,
+            nombre: d.producto.nombre,
+            precioUnitario: d.precioUnitario,
+            cantidad: d.cantidad
+        }));
+
+        cargarProductosParaEdicion().then(() => {
+            renderEditItems();
+            editarPedidoModal.show();
+        });
+    }
+
+    function renderEditItems() {
+        const tbody = $('#editPedidoTablaDetalles tbody');
+        tbody.empty();
+        let total = 0;
+
+        if (editItems.length === 0) {
+            tbody.append('<tr><td colspan="5" class="text-center text-muted">No hay productos en el pedido</td></tr>');
+            $('#editPedidoTotalLabel').text('S/ 0.00');
+            return;
+        }
+
+        editItems.forEach((item, index) => {
+            const subtotal = item.cantidad * item.precioUnitario;
+            total += subtotal;
+            tbody.append(`
+                <tr>
+                    <td>${item.nombre}</td>
+                    <td class="text-end">S/ ${item.precioUnitario.toFixed(2)}</td>
+                    <td class="text-center">
+                        <input type="number" class="form-control form-control-sm text-center edit-cantidad-item" 
+                               value="${item.cantidad}" min="1" data-index="${index}" style="width: 70px; margin: 0 auto;">
+                    </td>
+                    <td class="text-end fw-semibold">S/ ${subtotal.toFixed(2)}</td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-danger btn-remove-edit-item" data-index="${index}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `);
+        });
+
+        $('#editPedidoTotalLabel').text(`S/ ${total.toFixed(2)}`);
+    }
+
+    $('#btnEditPedidoAgregarItem').on('click', function() {
+        const sel = $('#editPedidoSelectProducto');
+        const prodId = sel.val();
+        const cantidad = parseInt($('#editPedidoCantidad').val(), 10) || 1;
+        if (!prodId) {
+            Swal.fire('Atención', 'Seleccione un producto', 'warning');
+            return;
+        }
+        const opt = sel.find(':selected');
+        const nombre = opt.data('nombre');
+        const precio = parseFloat(opt.data('precio'));
+
+        const existing = editItems.find(i => i.productoId == prodId);
+        if (existing) {
+            existing.cantidad += cantidad;
+        } else {
+            editItems.push({
+                productoId: prodId,
+                nombre: nombre,
+                precioUnitario: precio,
+                cantidad: cantidad
+            });
+        }
+        sel.val('');
+        $('#editPedidoCantidad').val(1);
+        renderEditItems();
+    });
+
+    $('#editPedidoTablaDetalles').on('change', '.edit-cantidad-item', function() {
+        const index = $(this).data('index');
+        const val = parseInt($(this).val(), 10);
+        if (isNaN(val) || val < 1) {
+            $(this).val(editItems[index].cantidad);
+            return;
+        }
+        editItems[index].cantidad = val;
+        renderEditItems();
+    });
+
+    $('#editPedidoTablaDetalles').on('click', '.btn-remove-edit-item', function() {
+        const index = $(this).data('index');
+        editItems.splice(index, 1);
+        renderEditItems();
+    });
+
+    $('#formEditarPedido').on('submit', function(e) {
+        e.preventDefault();
+        const id = $('#editPedidoId').val();
+        if (editItems.length === 0) {
+            Swal.fire('Atención', 'Debe agregar al menos un producto al pedido', 'warning');
+            return;
+        }
+
+        const payload = {
+            cliente: {
+                dniRuc: $('#editPedidoDniRuc').val().trim() || null,
+                nombre: $('#editPedidoNombre').val().trim(),
+                telefono: $('#editPedidoTelefono').val().trim() || null,
+                email: $('#editPedidoEmail').val().trim() || null,
+                direccion: $('#editPedidoDireccion').val().trim() || null
+            },
+            detalles: editItems.map(item => ({
+                producto: { id: item.productoId },
+                cantidad: item.cantidad
+            }))
+        };
+
+        showLoading(true);
+        fetch(`/pedidos/api/${id}/editar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...window.getCsrfHeaders() },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                editarPedidoModal.hide();
+                Swal.fire('Éxito', data.message, 'success');
+                dataTable.ajax.reload();
+            } else {
+                Swal.fire('Error', data.message, 'error');
+            }
+        })
+        .catch(() => Swal.fire('Error', 'Error de conexión', 'error'))
+        .finally(() => showLoading(false));
+    });
 
     function showLoading(show) {
         if (show) {

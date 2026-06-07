@@ -18,6 +18,30 @@ $(document).ready(function() {
                     return `${v.tipoComprobante || 'VENTA'} ${v.serie || ''}-${v.numeroComprobante || v.id}`;
                 }
             },
+            {
+                data: 'fechaCreacion',
+                render: d => {
+                    if (!d) return '-';
+                    try {
+                        const date = new Date(d);
+                        return date.toLocaleString('es-PE');
+                    } catch (e) {
+                        return d;
+                    }
+                }
+            },
+            {
+                data: 'fechaPago',
+                render: d => {
+                    if (!d) return '-';
+                    try {
+                        const date = new Date(d + 'T00:00:00');
+                        return date.toLocaleDateString('es-PE');
+                    } catch (e) {
+                        return d;
+                    }
+                }
+            },
             { data: 'saldoPendiente', render: d => `<strong>S/. ${parseFloat(d).toFixed(2)}</strong>` },
             {
                 data: 'estado',

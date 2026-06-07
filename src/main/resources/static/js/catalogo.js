@@ -309,7 +309,19 @@ function applyFilters() {
 
     const maxPrice = parseInt(document.getElementById('priceRange').value);
 
+    // Obtener parámetro de búsqueda por texto de la URL
+    const searchParams = new URLSearchParams(window.location.search);
+    const searchQuery = searchParams.get('q');
+
     currentProducts = productsData.filter(product => {
+        // Filtro de búsqueda por texto
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase().trim();
+            const nameMatch = product.nombre && product.nombre.toLowerCase().includes(query);
+            const descMatch = product.descripcion && product.descripcion.toLowerCase().includes(query);
+            if (!nameMatch && !descMatch) return false;
+        }
+
         // Filtro de disponibilidad
         if (availabilityFilters.length > 0) {
             const isAvailable = product.stock > 0;
