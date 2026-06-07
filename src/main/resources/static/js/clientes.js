@@ -6,6 +6,7 @@
 $(document).ready(function() {
     let dataTable;
     let clienteModal;
+    let tipoDocumento = 'dni';
 
     const MSG_DNI_RUC_INVALIDO = 'ingrese un dni o ruc valido';
     const MSG_TELEFONO_INVALIDO = 'ingrese un teléfono valido';
@@ -37,23 +38,51 @@ $(document).ready(function() {
                 },
                 {
                     data: null,
+                    orderable: false,
+                    searchable: false,
                     className: 'text-center',
                     render: (data, type, row) => `
-                        <div class="d-flex gap-2 justify-content-center">
-                            <button class="btn btn-sm btn-outline-primary action-edit" data-id="${row.id}" title="Editar">
+                        <div class="d-flex gap-1 justify-content-center">
+                            <button class="btn-action btn-edit action-edit" data-id="${row.id}" title="Editar">
                                 <i class="bi bi-pencil-fill"></i>
                             </button>
                             ${row.estado === 1 ? `
-                                <button class="btn btn-sm btn-outline-danger action-delete" data-id="${row.id}" title="Desactivar">
-                                    <i class="bi bi-trash-fill"></i>
+                                <button class="btn-action btn-delete action-delete" data-id="${row.id}" title="Desactivar">
+                                    <i class="bi bi-trash3-fill"></i>
                                 </button>
                             ` : ''}
                         </div>
                     `
                 }
             ],
-            language: { url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json" }
+            dom: 'rtip',
+            language: window.DATATABLES_ES || { url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json" }
         });
+
+        setupTableSearch('#buscadorClientes', dataTable);
+    }
+
+    function getMaxLengthDocumento() {
+        return tipoDocumento === 'dni' ? 8 : 11;
+    }
+
+    function setTipoDocumento(tipo) {
+        tipoDocumento = tipo;
+        const maxLen = getMaxLengthDocumento();
+        $('#labelDocumento').text(tipo === 'dni' ? 'DNI' : 'RUC');
+        $('#dniRuc').attr('maxlength', maxLen);
+        $('#dniRuc').val(filtrarSoloDigitos($('#dniRuc').val(), maxLen));
+        clearFieldError('dniRuc');
+    }
+
+    function detectarTipoDocumento(valor) {
+        if (valor && valor.length === 11) {
+            setTipoDocumento('ruc');
+            $('#tipoRuc').prop('checked', true);
+        } else {
+            setTipoDocumento('dni');
+            $('#tipoDni').prop('checked', true);
+        }
     }
 
     function showFieldError(fieldName, message) {
@@ -76,7 +105,10 @@ $(document).ready(function() {
     }
 
     function esDniRucValido(valor) {
-        return REGEX_SOLO_DIGITOS.test(valor) && (valor.length === 8 || valor.length === 11);
+        if (!REGEX_SOLO_DIGITOS.test(valor)) {
+            return false;
+        }
+        return tipoDocumento === 'dni' ? valor.length === 8 : valor.length === 11;
     }
 
     function esTelefonoValido(valor) {
@@ -90,7 +122,7 @@ $(document).ready(function() {
     function validarDniRuc(mostrarError = true) {
         const valor = $('#dniRuc').val().trim();
         if (!valor) {
-            if (mostrarError) showFieldError('dniRuc', 'El DNI o RUC es obligatorio');
+            if (mostrarError) showFieldError('dniRuc', `El ${tipoDocumento === 'dni' ? 'DNI' : 'RUC'} es obligatorio`);
             return false;
         }
         if (!esDniRucValido(valor)) {
@@ -152,8 +184,12 @@ $(document).ready(function() {
     }
 
     function setupValidacionesInput() {
+        $('input[name="tipoDocumento"]').on('change', function() {
+            setTipoDocumento(this.value);
+        });
+
         $('#dniRuc').on('input', function() {
-            this.value = filtrarSoloDigitos(this.value, 11);
+            this.value = filtrarSoloDigitos(this.value, getMaxLengthDocumento());
             const valor = this.value.trim();
             if (!valor || esDniRucValido(valor)) {
                 clearFieldError('dniRuc');
@@ -307,6 +343,7 @@ $(document).ready(function() {
                     clearFieldErrors();
                     const c = data.data;
                     $('#id').val(c.id);
+                    detectarTipoDocumento(c.dniRuc || '');
                     $('#dniRuc').val(c.dniRuc);
                     $('#nombre').val(c.nombre);
                     $('#telefono').val(c.telefono);
@@ -348,6 +385,8 @@ $(document).ready(function() {
     function resetForm() {
         $('#formCliente')[0].reset();
         $('#id').val('');
+        $('#tipoDni').prop('checked', true);
+        setTipoDocumento('dni');
         clearFieldErrors();
     }
 

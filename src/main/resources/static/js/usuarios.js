@@ -70,8 +70,11 @@ $(document).ready(function() {
             language: {
                 url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json",
             },
+            dom: 'rtip',
             pageLength: 10
         });
+
+        setupTableSearch('#buscadorUsuarios', dataTable);
     }
 
     /**

@@ -89,9 +89,12 @@ $(document).ready(function() {
                 { responsivePriority: 1, targets: 1 },
                 { responsivePriority: 2, targets: 4 },
             ],
+            dom: 'rtip',
             language: { url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json" },
             pageLength: 10
         });
+
+        setupTableSearch('#buscadorPerfiles', dataTable);
     }
 
     /**

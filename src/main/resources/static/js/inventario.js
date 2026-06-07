@@ -71,8 +71,11 @@ $(document).ready(function () {
         ],
         language: {
             url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
-        }
+        },
+        dom: 'rtip'
     });
+
+    setupTableSearch('#buscadorInventario', tablaInventario);
 
     $('#tablaInventario').on('click', '.btn-historial-inv', function () {
         abrirHistorialVentas($(this).data('id'), $(this).data('nombre'));

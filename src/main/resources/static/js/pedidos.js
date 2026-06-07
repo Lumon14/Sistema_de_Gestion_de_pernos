@@ -64,18 +64,18 @@ $(document).ready(function () {
                     className: 'text-center',
                     render: (data, type, row) => {
                         let buttons = `
-                            <div class="d-flex gap-2 justify-content-center">
-                                <button class="btn btn-sm btn-outline-primary action-view" data-id="${row.id}" title="Ver Detalle">
+                            <div class="d-flex gap-1 justify-content-center">
+                                <button class="btn-action btn-view action-view" data-id="${row.id}" title="Ver Detalle">
                                     <i class="bi bi-eye-fill"></i>
                                 </button>
                         `;
 
                         if (row.estado === 'PENDIENTE') {
                             buttons += `
-                                <button class="btn btn-sm btn-outline-success action-approve" data-id="${row.id}" title="Aprobar y Generar Venta">
+                                <button class="btn-action btn-status action-approve" data-id="${row.id}" title="Aprobar y Generar Venta">
                                     <i class="bi bi-check-lg"></i>
                                 </button>
-                                <button class="btn btn-sm btn-outline-danger action-cancel" data-id="${row.id}" title="Cancelar Pedido">
+                                <button class="btn-action btn-delete action-cancel" data-id="${row.id}" title="Cancelar Pedido">
                                     <i class="bi bi-x-lg"></i>
                                 </button>
                             `;
@@ -86,8 +86,11 @@ $(document).ready(function () {
                     }
                 }
             ],
-            language: { url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json" }
+            language: { url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json" },
+            dom: 'rtip'
         });
+
+        setupTableSearch('#buscadorPedidos', dataTable);
     }
 
     /**

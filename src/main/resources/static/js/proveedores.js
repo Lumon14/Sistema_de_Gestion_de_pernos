@@ -38,10 +38,7 @@ $(document).ready(function() {
         dom: 'rt<"d-flex justify-content-between p-3 border-top"ip>'
     });
 
-    // Buscador personalizado
-    $('#buscadorProveedores').on('keyup', function() {
-        tabla.search(this.value).draw();
-    });
+    setupTableSearch('#buscadorProveedores', tabla);
 
     // Nuevo Registro
     $('#btnNuevoProveedor').click(function() {

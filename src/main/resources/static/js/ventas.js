@@ -80,12 +80,12 @@ $(document).ready(function() {
                     data: null,
                     className: 'text-center',
                     render: (data, type, row) => `
-                        <div class="d-flex gap-2 justify-content-center">
-                            <button class="btn btn-sm btn-outline-primary action-view" data-id="${row.id}" title="Ver Detalle">
+                        <div class="d-flex gap-1 justify-content-center">
+                            <button class="btn-action btn-view action-view" data-id="${row.id}" title="Ver Detalle">
                                 <i class="bi bi-eye-fill"></i>
                             </button>
                             ${row.estado === 1 ? `
-                                <button class="btn btn-sm btn-outline-danger action-cancel" data-id="${row.id}" title="Cancelar Venta">
+                                <button class="btn-action btn-delete action-cancel" data-id="${row.id}" title="Cancelar Venta">
                                     <i class="bi bi-x-circle-fill"></i>
                                 </button>
                             ` : ''}
@@ -93,8 +93,11 @@ $(document).ready(function() {
                     `
                 }
             ],
+            dom: 'rtip',
             language: { url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json" }
         });
+
+        setupTableSearch('#buscadorVentas', dataTable);
     }
 
     function cargarClienteGeneral() {

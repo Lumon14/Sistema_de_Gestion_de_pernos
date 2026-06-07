@@ -80,4 +80,17 @@ $(document).ready(function() {
         }
         return headers;
     };
+
+    /**
+     * Conecta un input de búsqueda personalizado con una DataTable.
+     */
+    window.setupTableSearch = function(inputSelector, dataTable) {
+        const $input = $(inputSelector);
+        if (!$input.length || !dataTable) {
+            return;
+        }
+        $input.on('keyup input', function() {
+            dataTable.search(this.value).draw();
+        });
+    };
 });

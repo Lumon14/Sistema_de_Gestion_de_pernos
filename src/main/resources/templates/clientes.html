@@ -55,6 +55,13 @@
             <div class="p-4">
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-4">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                            <span class="fw-600 text-secondary" style="font-size:0.82rem;">Lista de Clientes</span>
+                            <div class="search-bar">
+                                <i class="bi bi-search search-icon"></i>
+                                <input type="text" id="buscadorClientes" class="form-control form-control-sm" placeholder="Buscar por DNI, nombre o teléfono..." style="width:280px;">
+                            </div>
+                        </div>
                         <table id="tablaClientes" class="table table-hover w-100">
                             <thead>
                                 <tr>
@@ -90,9 +97,19 @@
                         <input type="hidden" id="id">
                         
                         <div class="mb-3">
-                            <label for="dniRuc" class="form-label small fw-bold">DNI o RUC</label>
+                            <label class="form-label small fw-bold d-block">Tipo de documento</label>
+                            <div class="btn-group w-100" role="group" aria-label="Tipo de documento">
+                                <input type="radio" class="btn-check" name="tipoDocumento" id="tipoDni" value="dni" checked>
+                                <label class="btn btn-outline-primary" for="tipoDni">DNI</label>
+                                <input type="radio" class="btn-check" name="tipoDocumento" id="tipoRuc" value="ruc">
+                                <label class="btn btn-outline-primary" for="tipoRuc">RUC</label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="dniRuc" class="form-label small fw-bold" id="labelDocumento">DNI</label>
                             <div class="input-group">
-                                <input type="text" class="form-control" id="dniRuc" name="dniRuc" maxlength="11" inputmode="numeric" autocomplete="off">
+                                <input type="text" class="form-control" id="dniRuc" name="dniRuc" maxlength="8" inputmode="numeric" autocomplete="off">
                                 <button class="btn btn-outline-primary" type="button" id="btnBuscarDni">
                                     <i class="bi bi-search"></i> Consultar
                                 </button>

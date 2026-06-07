@@ -111,9 +111,7 @@ $(document).ready(function() {
     });
 
     // Custom Search
-    $('#customSearch').on('keyup', function() {
-        dataTable.search(this.value).draw();
-    });
+    setupTableSearch('#customSearch', dataTable);
 
     const urlParams = new URLSearchParams(window.location.search);
     const editId = urlParams.get('edit');

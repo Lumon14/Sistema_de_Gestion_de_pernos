@@ -69,8 +69,11 @@ $(document).ready(function() {
                 `
             }
         ],
+        dom: 'rtip',
         language: { url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json" }
     });
+
+    setupTableSearch('#buscadorCategorias', dataTable);
 
     $('#btnNuevaCategoria').click(() => {
         $('#formCategoria')[0].reset();
