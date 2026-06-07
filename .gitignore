@@ -28,6 +28,7 @@ target/
 /nbdist/
 .nb-gradle/
 
+
 # VS Code
 .vscode/
 
@@ -47,3 +48,5 @@ build/
 *.jpeg
 *.gif
 *.svg
+
+/rc/main/resources/application.properties
