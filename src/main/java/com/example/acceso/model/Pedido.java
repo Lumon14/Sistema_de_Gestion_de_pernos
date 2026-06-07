@@ -31,7 +31,7 @@ public class Pedido {
     @Column(nullable = false, length = 20)
     private String estado = "PENDIENTE"; // PENDIENTE, COMPLETADO, CANCELADO
 
-    @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<DetallePedido> detalles;
 
     @PrePersist

@@ -12,6 +12,8 @@ import java.util.Map;
 @Repository
 public interface DetalleVentaRepository extends JpaRepository<DetalleVenta, Long> {
 
+    List<DetalleVenta> findByVentaId(Long ventaId);
+
     // Usamos una consulta nativa que devuelve una lista de mapas (clave-valor)
     @Query(value = "SELECT " +
             "v.id AS idVenta, " +

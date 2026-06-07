@@ -14,6 +14,11 @@ $(document).ready(function () {
     // Event Listeners
     setupEventListeners();
 
+    const pedidoParam = new URLSearchParams(window.location.search).get('pedido');
+    if (pedidoParam) {
+        setTimeout(() => verDetallePedido(pedidoParam), 600);
+    }
+
     /**
      * Inicializa DataTable para listar pedidos
      */

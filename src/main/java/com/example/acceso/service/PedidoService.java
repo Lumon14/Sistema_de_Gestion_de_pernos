@@ -19,17 +19,20 @@ public class PedidoService {
     private final ConsultaService consultaService;
     private final ProductoRepository productoRepository;
     private final VentaService ventaService;
+    private final NotificacionService notificacionService;
 
     public PedidoService(PedidoRepository pedidoRepository,
                          ClienteService clienteService,
                          ConsultaService consultaService,
                          ProductoRepository productoRepository,
-                         VentaService ventaService) {
+                         VentaService ventaService,
+                         NotificacionService notificacionService) {
         this.pedidoRepository = pedidoRepository;
         this.clienteService = clienteService;
         this.consultaService = consultaService;
         this.productoRepository = productoRepository;
         this.ventaService = ventaService;
+        this.notificacionService = notificacionService;
     }
 
     public List<Pedido> listarTodos() {
@@ -98,6 +101,9 @@ public class PedidoService {
 
         Pedido guardado = pedidoRepository.save(pedido);
         String mensajeCliente = construirMensajeCliente(resultadoCliente);
+
+        notificacionService.notificarPedidoNuevo(guardado);
+
         return new ResultadoPedido(guardado, mensajeCliente);
     }
 
@@ -180,5 +186,51 @@ public class PedidoService {
 
         pedido.setEstado("CANCELADO");
         pedidoRepository.save(pedido);
+    }
+
+    @Transactional
+    public Pedido editarPedido(Long id, Pedido pedidoActualizado) {
+        Pedido existente = pedidoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Pedido no encontrado: " + id));
+
+        if (!"PENDIENTE".equals(existente.getEstado())) {
+            throw new RuntimeException("Solo se pueden editar pedidos en estado PENDIENTE");
+        }
+
+        // Buscar o crear cliente si se envió información modificada
+        if (pedidoActualizado.getCliente() != null) {
+            Cliente clienteInfo = pedidoActualizado.getCliente();
+            enriquecerClienteDesdeConsultaExterna(clienteInfo);
+            ClienteService.ResultadoCliente resultadoCliente = clienteService.buscarOCrear(clienteInfo);
+            existente.setCliente(resultadoCliente.getCliente());
+        }
+
+        // Actualizar detalles y calcular total
+        existente.getDetalles().clear();
+        double total = 0.0;
+        List<DetallePedido> detallesProcesados = new ArrayList<>();
+
+        for (DetallePedido detalle : pedidoActualizado.getDetalles()) {
+            Producto producto = productoRepository.findById(detalle.getProducto().getId())
+                    .orElseThrow(() -> new RuntimeException("Producto no encontrado: " + detalle.getProducto().getId()));
+
+            DetallePedido nuevoDetalle = new DetallePedido();
+            nuevoDetalle.setProducto(producto);
+            nuevoDetalle.setCantidad(detalle.getCantidad());
+            nuevoDetalle.setPrecioUnitario(producto.getPrecioVenta());
+
+            double sub = detalle.getCantidad() * producto.getPrecioVenta();
+            sub = Math.round(sub * 100.0) / 100.0;
+            nuevoDetalle.setSubtotal(sub);
+
+            total += sub;
+            nuevoDetalle.setPedido(existente);
+            detallesProcesados.add(nuevoDetalle);
+        }
+
+        existente.getDetalles().addAll(detallesProcesados);
+        existente.setTotal(Math.round(total * 100.0) / 100.0);
+
+        return pedidoRepository.save(existente);
     }
 }

@@ -84,4 +84,15 @@ public class PedidoController {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
     }
+
+    @PostMapping("/api/{id}/editar")
+    @ResponseBody
+    public ResponseEntity<?> editar(@PathVariable Long id, @RequestBody Pedido pedido) {
+        try {
+            Pedido editado = pedidoService.editarPedido(id, pedido);
+            return ResponseEntity.ok(Map.of("success", true, "data", editado, "message", "Pedido actualizado con éxito"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
 }

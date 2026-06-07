@@ -7,9 +7,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Service
 public class ProveedorService {
+    private static final Pattern REGEX_SOLO_DIGITOS = Pattern.compile("^\\d+$");
+
     private final ProveedorRepository proveedorRepository;
 
     public ProveedorService(ProveedorRepository proveedorRepository) {
@@ -30,6 +33,7 @@ public class ProveedorService {
 
     @Transactional
     public Proveedor guardar(Proveedor proveedor) {
+        validarProveedor(proveedor);
         if (proveedor.getId() != null) {
             return proveedorRepository.findById(proveedor.getId()).map(existing -> {
                 existing.setDocumento(proveedor.getDocumento());
@@ -54,5 +58,34 @@ public class ProveedorService {
             p.setEstado(0); // Borrado lógico
             proveedorRepository.save(p);
         });
+    }
+
+    private void validarProveedor(Proveedor proveedor) {
+        if (proveedor.getDocumento() == null || proveedor.getDocumento().trim().isEmpty()) {
+            throw new IllegalArgumentException("El documento es obligatorio");
+        }
+        String documento = proveedor.getDocumento().trim();
+        if (!REGEX_SOLO_DIGITOS.matcher(documento).matches()
+                || (documento.length() != 8 && documento.length() != 11)) {
+            throw new IllegalArgumentException("ingrese un dni o ruc valido");
+        }
+        proveedor.setDocumento(documento);
+
+        if (proveedor.getNombre() == null || proveedor.getNombre().trim().isEmpty()) {
+            throw new IllegalArgumentException("El nombre es obligatorio");
+        }
+        proveedor.setNombre(proveedor.getNombre().trim());
+
+        if (proveedor.getTelefono() != null && !proveedor.getTelefono().trim().isEmpty()) {
+            String telefono = proveedor.getTelefono().trim();
+            if (!REGEX_SOLO_DIGITOS.matcher(telefono).matches() || telefono.length() != 9) {
+                throw new IllegalArgumentException("ingrese un teléfono valido");
+            }
+            proveedor.setTelefono(telefono);
+        }
+
+        if (proveedor.getDireccion() != null) {
+            proveedor.setDireccion(proveedor.getDireccion().trim());
+        }
     }
 }

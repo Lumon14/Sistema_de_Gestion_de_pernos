@@ -67,27 +67,52 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-truck me-2"></i>Datos del Proveedor</h5>
+                <h5 class="modal-title" id="modalTitle"><i class="bi bi-truck me-2"></i>Datos del Proveedor</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="formProveedor">
+                <form id="formProveedor" novalidate>
                     <input type="hidden" id="id">
+
                     <div class="mb-3">
-                        <label class="form-label">RUC / DNI</label>
-                        <input type="text" id="documento" class="form-control" placeholder="Ej: 20601234567" required>
+                        <label class="form-label small fw-bold d-block">Tipo de documento</label>
+                        <div class="btn-group w-100" role="group" aria-label="Tipo de documento">
+                            <input type="radio" class="btn-check" name="tipoDocumento" id="tipoDni" value="dni" checked>
+                            <label class="btn btn-outline-primary" for="tipoDni">DNI</label>
+                            <input type="radio" class="btn-check" name="tipoDocumento" id="tipoRuc" value="ruc">
+                            <label class="btn btn-outline-primary" for="tipoRuc">RUC</label>
+                        </div>
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label">Razón Social / Nombre</label>
-                        <input type="text" id="nombre" class="form-control" placeholder="Nombre de la empresa o proveedor" required>
+                        <label class="form-label small fw-bold" id="labelDocumento">DNI</label>
+                        <div class="input-group">
+                            <input type="text" id="documento" class="form-control" maxlength="8"
+                                inputmode="numeric" autocomplete="off" required>
+                            <button type="button" class="btn btn-outline-primary" id="btnConsultarDocumento">
+                                <i class="bi bi-search"></i> Consultar
+                            </button>
+                        </div>
+                        <div class="invalid-feedback d-block" id="documento-error"></div>
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label">Dirección</label>
-                        <input type="text" id="direccion" class="form-control" placeholder="Dirección fiscal">
+                        <label class="form-label small fw-bold" id="labelNombre">Nombre completo</label>
+                        <input type="text" id="nombre" class="form-control" maxlength="150"
+                            placeholder="Nombre completo del proveedor" required>
+                        <div class="invalid-feedback d-block" id="nombre-error"></div>
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label">Teléfono / Celular</label>
-                        <input type="text" id="telefono" class="form-control" placeholder="987654321">
+                        <label class="form-label small fw-bold">Dirección</label>
+                        <input type="text" id="direccion" class="form-control" placeholder="Dirección fiscal" maxlength="255">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Teléfono / Celular</label>
+                        <input type="text" id="telefono" class="form-control" placeholder="987654321"
+                            maxlength="9" inputmode="numeric" autocomplete="off">
+                        <div class="invalid-feedback d-block" id="telefono-error"></div>
                     </div>
                 </form>
             </div>

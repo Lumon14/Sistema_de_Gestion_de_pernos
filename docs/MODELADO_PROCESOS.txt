@@ -1,0 +1,410 @@
+================================================================================
+  PERNOS VEGA — MODELADO DE PROCESOS POR MÓDULO
+  Formato: ¿Qué hace? | ¿Cómo funciona? (flujo Usuario → Sistema → BD)
+================================================================================
+
+NOTA: Cada proceso sigue la lógica BPMN con carriles Usuario/Admin, Sistema y BD.
+Los círculos verdes = inicio | Los címbolos rombo = decisión | Círculos rojos = fin (BD actualizada).
+
+================================================================================
+1. LOGIN (AUTENTICACIÓN)
+================================================================================
+
+¿QUÉ HACE?
+Permite el acceso seguro al sistema administrativo validando credenciales del usuario.
+
+¿CÓMO FUNCIONA?
+  [INICIO] Usuario accede a /login
+      ↓
+  [USUARIO] Ingresa usuario y contraseña en el formulario
+      ↓
+  [SISTEMA] Spring Security valida credenciales contra tabla usuarios
+      ↓
+  [DECISIÓN] ¿Credenciales válidas y usuario activo?
+      ├── NO → Muestra error "Usuario o contraseña incorrectos" → [FIN]
+      └── SÍ → Carga perfil y permisos (opciones del menú)
+              ↓
+          [SISTEMA] Crea sesión autenticada
+              ↓
+          [USUARIO] Redirige al Dashboard (/dashboard)
+              ↓
+          [FIN] Sesión activa; sidebar muestra solo módulos autorizados
+
+================================================================================
+2. USUARIOS
+================================================================================
+
+¿QUÉ HACE?
+Administra las cuentas de acceso al sistema (vendedores, administradores, etc.).
+
+¿CÓMO FUNCIONA?
+  [INICIO] Admin accede al módulo Usuarios
+      ↓
+  [DECISIÓN] ¿Qué acción desea realizar?
+
+  --- AGREGAR USUARIO ---
+  [USUARIO] Clic en "Nuevo Usuario"
+  [SISTEMA] Muestra formulario (nombre, usuario, clave, perfil)
+  [USUARIO] Completa datos y guarda
+  [SISTEMA] Valida campos obligatorios y unicidad de usuario
+  [BD] Inserta registro en tabla usuarios
+  [FIN] Usuario creado; aparece en listado
+
+  --- EDITAR USUARIO ---
+  [USUARIO] Clic en icono editar
+  [SISTEMA] Carga datos del usuario en formulario
+  [USUARIO] Modifica campos deseados
+  [SISTEMA] Actualiza usuario
+  [BD] UPDATE en usuarios
+  [FIN]
+
+  --- ELIMINAR / DESACTIVAR ---
+  [USUARIO] Clic en eliminar
+  [SISTEMA] Muestra alerta de confirmación
+  [DECISIÓN] ¿Confirma eliminación?
+      ├── NO → Cancela operación → [FIN]
+      └── SÍ → Cambia estado a inactivo (borrado lógico)
+              [BD] UPDATE estado = 0
+              [FIN]
+
+================================================================================
+3. PERFILES
+================================================================================
+
+¿QUÉ HACE?
+Define roles del sistema y qué opciones del menú puede ver/ejecutar cada rol.
+
+¿CÓMO FUNCIONA?
+  [INICIO] Admin accede a Perfiles
+      ↓
+  [DECISIÓN] Acción del módulo
+
+  --- CREAR PERFIL ---
+  [USUARIO] Nuevo perfil → ingresa nombre y selecciona opciones (checkboxes)
+  [SISTEMA] Guarda perfil y relaciones perfil_opcion
+  [BD] INSERT perfiles + INSERT perfil_opcion
+  [FIN]
+
+  --- EDITAR PERFIL ---
+  [USUARIO] Modifica nombre u opciones asignadas
+  [SISTEMA] Actualiza perfil y opciones
+  [BD] UPDATE perfiles; DELETE/INSERT perfil_opcion
+  [FIN]
+
+  --- ELIMINAR PERFIL ---
+  [SISTEMA] Alerta: "¿Desea eliminar el perfil?"
+  [DECISIÓN] ¿Confirma?
+      ├── NO → Cancela → [FIN]
+      └── SÍ → Desactiva perfil (borrado lógico)
+              [BD] UPDATE estado
+              [FIN]
+
+================================================================================
+4. PRODUCTOS
+================================================================================
+
+¿QUÉ HACE?
+Gestiona el catálogo de productos: datos, precios, stock inicial, categoría y proveedor.
+
+¿CÓMO FUNCIONA?
+  [INICIO] Accede a módulo Productos
+      ↓
+  [DECISIÓN] Acciones del módulo
+
+  --- AGREGAR NUEVO PRODUCTO ---
+  [USUARIO] Clic "Nuevo Producto"
+  [SISTEMA] Muestra formulario
+  [USUARIO] Ingresa nombre, código, precios, stock, categoría, proveedor, imagen
+  [SISTEMA] Valida datos (precios y stock positivos)
+  [BD] INSERT productos
+  [FIN] Producto disponible en catálogo e inventario
+
+  --- EDITAR ---
+  [USUARIO] Modifica datos del producto
+  [SISTEMA] Actualiza producto
+  [BD] UPDATE productos
+  [FIN]
+
+  --- ELIMINAR ---
+  [SISTEMA] Alerta confirmación
+  [DECISIÓN] ¿Eliminar?
+      ├── NO → Cancela → [FIN]
+      └── SÍ → Borrado lógico (estado inactivo)
+              [BD] UPDATE estado = 0
+              [FIN]
+
+  --- CAMBIO DE ESTADO (activo/inactivo) ---
+  [USUARIO] Suspende o activa producto
+  [SISTEMA] Alerta confirmación
+  [DECISIÓN] ¿Confirma cambio?
+      ├── NO → Cancela → [FIN]
+      └── SÍ → Actualiza estado
+              [BD] UPDATE productos.estado
+              [FIN]
+
+================================================================================
+5. CATEGORÍAS
+================================================================================
+
+¿QUÉ HACE?
+Organiza los productos en grupos (familias) para facilitar búsqueda y reportes.
+
+¿CÓMO FUNCIONA?
+  [INICIO] Accede a Categorías
+      ↓
+  --- AGREGAR ---
+  [USUARIO] Ingresa nombre y descripción de categoría
+  [SISTEMA] Valida y guarda
+  [BD] INSERT categorias
+  [FIN]
+
+  --- EDITAR ---
+  [USUARIO] Modifica nombre/descripción
+  [SISTEMA] Actualiza
+  [BD] UPDATE categorias
+  [FIN]
+
+  --- ELIMINAR ---
+  [SISTEMA] Confirma eliminación
+  [DECISIÓN] ¿Eliminar?
+      ├── NO → [FIN]
+      └── SÍ → Borrado lógico
+              [BD] UPDATE estado
+              [FIN]
+
+================================================================================
+6. PROVEEDORES
+================================================================================
+
+¿QUÉ HACE?
+Mantiene el directorio de proveedores con DNI/RUC, datos de contacto y dirección.
+
+¿CÓMO FUNCIONA?
+  [INICIO] Accede a Proveedores
+      ↓
+  --- REGISTRAR PROVEEDOR ---
+  [USUARIO] Selecciona tipo documento (DNI 8 dígitos / RUC 11 dígitos)
+  [USUARIO] Ingresa documento (solo números) y clic "Consultar"
+  [SISTEMA] Consulta API RENIEC/SUNAT y autocompleta nombre y dirección
+  [USUARIO] Completa teléfono (9 dígitos) y guarda
+  [SISTEMA] Valida documento y teléfono
+  [BD] INSERT proveedores
+  [FIN]
+
+  --- EDITAR / ELIMINAR ---
+  Mismo flujo que otros módulos maestros (formulario → validación → UPDATE/estado)
+
+================================================================================
+7. CLIENTES
+================================================================================
+
+¿QUÉ HACE?
+Registra y consulta clientes para ventas, pedidos y cuentas por cobrar.
+
+¿CÓMO FUNCIONA?
+  [INICIO] Accede a Clientes
+      ↓
+  --- NUEVO CLIENTE ---
+  [USUARIO] Elige DNI o RUC, ingresa documento
+  [USUARIO] Clic "Consultar" → API externa trae nombre
+  [USUARIO] Completa teléfono, correo, dirección
+  [SISTEMA] Valida formato (DNI 8, RUC 11, teléfono 9, email)
+  [BD] INSERT clientes
+  [FIN]
+
+  --- USO EN VENTAS/PEDIDOS ---
+  [SISTEMA] buscarOCrear: si el DNI existe lo reutiliza; si no, lo crea
+  [BD] SELECT/INSERT clientes
+  [FIN]
+
+================================================================================
+8. PEDIDOS (CARrito / CATÁLOGO WEB)
+================================================================================
+
+¿QUÉ HACE?
+Recibe pedidos online del catálogo público y permite al vendedor aprobarlos o cancelarlos.
+
+¿CÓMO FUNCIONA?
+  [INICIO] Cliente navega catálogo público (/catalogo)
+      ↓
+  [USUARIO CLIENTE] Agrega productos al carrito (localStorage)
+  [USUARIO CLIENTE] Checkout: ingresa DNI, nombre, teléfono, email
+  [SISTEMA] POST /pedidos/api/registrar
+      → Consulta RENIEC si falta nombre
+      → Crea/actualiza cliente
+      → Calcula totales por línea
+      → Estado PENDIENTE (sin descontar stock)
+  [BD] INSERT pedidos + detalles_pedidos
+  [SISTEMA] Genera NOTIFICACIÓN al vendedor (pedido nuevo)
+  [FIN] Cliente recibe confirmación en pantalla
+
+  --- PROCESO ADMIN (VENDEDOR) ---
+  [USUARIO] Accede a Pedidos; ve notificación de pedido nuevo
+  [USUARIO] Clic en notificación → abre pedido específico
+  [DECISIÓN] ¿Qué hacer con el pedido?
+
+      --- APROBAR / COMPLETAR ---
+      [USUARIO] Clic "Completar"
+      [SISTEMA] Cambia estado a COMPLETADO
+      [SISTEMA] Genera Nota de Venta (descuenta stock)
+      [BD] UPDATE pedidos; INSERT ventas + detalles_ventas; UPDATE productos.stock
+      [FIN]
+
+      --- CANCELAR ---
+      [USUARIO] Clic "Cancelar"
+      [SISTEMA] Estado CANCELADO (sin movimiento de stock)
+      [BD] UPDATE pedidos.estado
+      [FIN]
+
+================================================================================
+9. VENTAS (NOTA DE VENTA, BOLETA, FACTURA)
+================================================================================
+
+¿QUÉ HACE?
+Registra transacciones de mostrador y convierte notas en comprobantes fiscales.
+
+¿CÓMO FUNCIONA?
+
+  --- 9A. NOTA DE VENTA (mostrador) ---
+  [INICIO] Vendedor abre "Nueva Nota de Venta"
+  [USUARIO] Busca cliente por DNI/RUC o Cliente General
+  [USUARIO] Agrega productos, selecciona método de pago, cobra
+  [SISTEMA] Valida stock y pago (efectivo ≥ total)
+  [SISTEMA] registrarNotaVenta: serie NV001, estado PENDIENTE (para canje)
+  [BD] INSERT ventas + detalles; UPDATE stock; kardex SALIDA
+  [FIN] Nota registrada
+
+  --- 9B. CANJE NOTA → BOLETA / FACTURA ---
+  [USUARIO] En nota PENDIENTE, clic "Procesar Pago"
+  [SISTEMA] Autocompleta datos del cliente de la nota
+  [USUARIO] Elige Boleta o Factura; confirma datos
+  [SISTEMA] canjearNotaVenta:
+      → Crea comprobante B001 o F001 (sin segundo descuento de stock)
+      → Nota pasa a CANJEADA
+      → Factura calcula IGV 18%
+  [BD] INSERT venta canje; UPDATE nota origen
+  [FIN]
+
+  --- 9C. BOLETAS / FACTURAS (consulta) ---
+  [USUARIO] Lista comprobantes emitidos; ve detalle
+  [USUARIO] Envía WhatsApp, correo o descarga PDF
+  [FIN]
+
+  --- 9D. ANULAR VENTA ---
+  [SISTEMA] Alerta confirmación
+  [DECISIÓN] ¿Anular?
+      ├── NO → [FIN]
+      └── SÍ → estado=0, devuelve stock si afecta inventario
+              [BD] UPDATE ventas; UPDATE productos.stock; kardex ENTRADA
+              [FIN]
+
+================================================================================
+10. INVENTARIO
+================================================================================
+
+¿QUÉ HACE?
+Controla stock actual, alertas de stock bajo, ajustes manuales e historial de ventas por producto.
+
+¿CÓMO FUNCIONA?
+  [INICIO] Accede a Control de Inventario
+  [SISTEMA] Lista productos con stock vs stock mínimo
+  [SISTEMA] Clasifica: Óptimo | Stock Crítico | Sin Stock
+  [SISTEMA] Si stock ≤ mínimo → NOTIFICACIÓN de alerta
+
+  --- AGREGAR STOCK ---
+  [USUARIO] Clic + ingresa cantidad
+  [SISTEMA] Suma al stock actual
+  [BD] UPDATE productos.stock
+  [FIN]
+
+  --- ACTUALIZAR STOCK ---
+  [USUARIO] Establece nuevo valor de stock
+  [SISTEMA] Reemplaza stock
+  [BD] UPDATE productos.stock
+  [FIN]
+
+  --- HISTORIAL DE VENTAS ---
+  [USUARIO] Clic historial de un producto
+  [SISTEMA] Consulta ventas donde aparece el producto
+  [USUARIO] Exporta PDF o Excel del historial
+  [FIN]
+
+  --- EDITAR / ELIMINAR PRODUCTO ---
+  Redirige o ejecuta acciones del módulo Productos
+
+================================================================================
+11. CUENTAS POR COBRAR
+================================================================================
+
+¿QUÉ HACE?
+Controla saldos pendientes de clientes por ventas a crédito o notas sin cobrar totalmente.
+
+¿CÓMO FUNCIONA?
+  [INICIO] Venta confirmada a crédito / generación manual de cuenta
+      ↓
+  [BD] INSERT cuentas_cobrar (id_cliente, id_venta, saldo_pendiente, estado=PENDIENTE)
+      ↓
+  [USUARIO ADMIN] Accede al listado de pagos pendientes
+  [SISTEMA] Clasifica cuentas: al día | pendiente | pagado | vencido
+  [SISTEMA] Envía recordatorio (notificación interna)
+      ↓
+  [USUARIO] Contacta al cliente
+  [DECISIÓN] ¿Realiza el pago pendiente?
+      ├── NO → [SISTEMA] Sin cambios → vuelve a clasificación
+      └── SÍ → [USUARIO] Registra pago (monto + método)
+              [SISTEMA] Disminuye saldo_pendiente
+              [DECISIÓN] ¿Saldo = 0?
+                  ├── NO → estado PARCIAL
+                  └── SÍ → estado PAGADO
+              [BD] UPDATE cuentas_cobrar
+              [FIN]
+
+================================================================================
+12. CUENTAS POR PAGAR
+================================================================================
+
+¿QUÉ HACE?
+Gestiona deudas con proveedores por facturas de compra o servicios recibidos.
+
+¿CÓMO FUNCIONA?
+  [INICIO] Registro de factura de compra / obligación con proveedor
+      ↓
+  [USUARIO] Ingresa proveedor, monto total y concepto
+  [SISTEMA] Crea cuenta por pagar (saldo = monto total)
+  [BD] INSERT cuentas_pagar (id_proveedor, monto_total, saldo_pendiente, PENDIENTE)
+      ↓
+  [SISTEMA] Confirma pagos según prioridad (fecha / monto)
+  [USUARIO ADMIN] Realiza el pago al proveedor
+  [DECISIÓN] ¿Realiza el pago pendiente?
+      ├── NO → Sin cambios
+      └── SÍ → [USUARIO] Registra abono
+              [SISTEMA] Disminuye o finaliza saldo
+              [BD] UPDATE cuentas_pagar (saldo, estado)
+              [FIN]
+
+================================================================================
+13. NOTIFICACIONES DEL SISTEMA
+================================================================================
+
+¿QUÉ HACE?
+Alerta en tiempo real al personal sobre eventos críticos del negocio.
+
+¿CÓMO FUNCIONA?
+  [EVENTOS QUE GENERAN NOTIFICACIÓN]
+  • PEDIDO_NUEVO    → Cliente registró pedido desde catálogo
+  • STOCK_BAJO      → Producto con stock ≤ stock mínimo
+  • STOCK_AGOTADO   → Producto con stock = 0
+  • CUENTA_COBRAR   → Recordatorio de pago pendiente (futuro)
+
+  [FLUJO]
+  [SISTEMA] Detecta evento → INSERT notificaciones (FK id_usuario obligatoria)
+  [SISTEMA] Vincula id_pedido, id_producto o id_cuenta_cobrar según el tipo
+  [SISTEMA] Polling cada 30s en panel admin (solo notificaciones del usuario logueado)
+  [USUARIO] Ve campana con contador de no leídas
+  [USUARIO] Clic en notificación → marca leída → navega al módulo (pedido/inventario)
+  [SISTEMA] Si permiso concedido → Notification API del navegador (escritorio)
+  [FIN]
+
+================================================================================
+FIN DEL DOCUMENTO
+================================================================================

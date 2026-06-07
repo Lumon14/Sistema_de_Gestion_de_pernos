@@ -12,9 +12,11 @@ import java.util.Optional;
 @Service
 public class ProductoService {
     private final ProductoRepository productoRepository;
+    private final NotificacionService notificacionService;
 
-    public ProductoService(ProductoRepository productoRepository) {
+    public ProductoService(ProductoRepository productoRepository, NotificacionService notificacionService) {
         this.productoRepository = productoRepository;
+        this.notificacionService = notificacionService;
     }
 
     public List<Producto> listarTodos() {
@@ -59,7 +61,9 @@ public class ProductoService {
                         if (producto.getEstado() != null) {
                             existing.setEstado(producto.getEstado());
                         }
-                        return productoRepository.save(existing);
+                        Producto saved = productoRepository.save(existing);
+                        notificacionService.verificarStockProducto(saved);
+                        return saved;
                     })
                     .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado"));
         }
@@ -72,7 +76,9 @@ public class ProductoService {
         if (producto.getPrecioVenta() != null) {
             producto.setPrecio(producto.getPrecioVenta());
         }
-        return productoRepository.save(producto);
+        Producto saved = productoRepository.save(producto);
+        notificacionService.verificarStockProducto(saved);
+        return saved;
     }
 
     private void validarValoresNumericos(Producto producto) {
@@ -120,6 +126,8 @@ public class ProductoService {
         } else {
             producto.setStock(cantidad);
         }
-        return productoRepository.save(producto);
+        Producto saved = productoRepository.save(producto);
+        notificacionService.verificarStockProducto(saved);
+        return saved;
     }
 }

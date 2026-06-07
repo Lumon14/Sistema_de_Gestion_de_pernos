@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!-- Panel de notificaciones fijo arriba a la derecha (incluir en sidebar) -->
+    <div th:fragment="panel">
+        <div class="notif-topbar" id="notifTopbar">
+            <button type="button" class="notif-bell-btn" id="btnNotificaciones" aria-label="Abrir notificaciones">
+                <i class="bi bi-bell-fill"></i>
+                <span class="notif-badge d-none" id="notificacionesContador">0</span>
+            </button>
+        </div>
+
+        <div class="notif-panel d-none" id="notifPanel" role="dialog" aria-label="Notificaciones">
+            <div class="notif-panel-header">
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="notif-panel-close" id="btnCerrarNotifPanel" aria-label="Cerrar">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                    <h2 class="notif-panel-title mb-0">Notificaciones</h2>
+                </div>
+                <button type="button" class="notif-link-btn" id="btnMarcarTodasLeidas">Marcar leídas</button>
+            </div>
+            <div class="notif-panel-body" id="notificacionesLista">
+                <p class="notif-empty">Cargando alertas...</p>
+            </div>
+        </div>
+        <div class="notif-backdrop d-none" id="notifBackdrop"></div>
+    </div>
+</body>
+</html>

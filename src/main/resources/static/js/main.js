@@ -93,4 +93,14 @@ $(document).ready(function() {
             dataTable.search(this.value).draw();
         });
     };
+
+    if ($('#btnNotificaciones').length && !window.__notifScriptLoaded) {
+        window.__notifScriptLoaded = true;
+        const script = document.createElement('script');
+        script.src = '/js/notifications.js';
+        script.onload = function () {
+            if (window.initNotificaciones) window.initNotificaciones();
+        };
+        document.body.appendChild(script);
+    }
 });

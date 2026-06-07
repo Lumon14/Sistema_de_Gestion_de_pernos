@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Ventas - Pernos Vega</title>
+
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
+    <!-- SweetAlert2 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <!-- Select2 (para búsqueda de productos y clientes) -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+
+    <!-- Estilos Personalizados -->
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <style>
+        /* Modal Nota de Venta — diseño vertical por secciones */
+        #ventaModal .modal-dialog {
+            max-width: 960px;
+            margin: 1rem auto;
+        }
+        #ventaModal .modal-content {
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 2rem);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        #ventaModal #formVenta {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+        #ventaModal .nv-header {
+            background: #fff;
+            padding: 18px 24px 16px;
+            border-bottom: 3px solid #6366f1;
+            flex-shrink: 0;
+        }
+        #ventaModal .nv-header .modal-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #1e1b4b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #ventaModal .nv-header .modal-title i {
+            color: #6366f1;
+            font-size: 1.3rem;
+        }
+        #ventaModal .nv-badge {
+            font-size: 0.68rem;
+            font-weight: 600;
+            background: #eef2ff;
+            color: #4f46e5;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+        #ventaModal .nv-body {
+            padding: 20px 24px;
+            background: #fafbff;
+            flex: 1 1 auto;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        #ventaModal .nv-card {
+            background: #fff;
+            border: 1px solid #e0e7ff;
+            border-radius: 12px;
+            padding: 16px;
+            height: 100%;
+        }
+        #ventaModal .nv-card-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: #6366f1;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        #ventaModal .cliente-activo {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #059669;
+            margin-top: 8px;
+            min-height: 1.1rem;
+        }
+        #ventaModal .btn-cliente-general {
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+            color: #4f46e5;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        #ventaModal .btn-cliente-general:hover {
+            background: #6366f1;
+            border-color: #6366f1;
+            color: #fff;
+        }
+        #ventaModal .comprobante-readonly {
+            background: #f5f3ff;
+            border-color: #ddd6fe;
+            color: #5b21b6;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+        #ventaModal .nv-productos-bar {
+            background: #fff;
+            border: 1px solid #e0e7ff;
+            border-radius: 12px;
+            padding: 14px 16px;
+        }
+        #ventaModal .btn-ver-catalogo {
+            background: transparent;
+            border: 1px solid #6366f1;
+            color: #6366f1;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 8px 14px;
+            white-space: nowrap;
+        }
+        #ventaModal .btn-ver-catalogo:hover {
+            background: #6366f1;
+            color: #fff;
+        }
+        #ventaModal .producto-search-wrap .select2-container {
+            width: 100% !important;
+        }
+        #ventaModal .tabla-detalles-wrap {
+            border: 1px solid #e0e7ff;
+            border-radius: 12px;
+            overflow-y: auto;
+            max-height: 200px;
+            background: #fff;
+        }
+        #ventaModal #tablaDetalles {
+            font-size: 0.82rem;
+            margin-bottom: 0;
+        }
+        #ventaModal #tablaDetalles thead th {
+            background: #6366f1;
+            color: #fff;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            padding: 10px 12px;
+            border: none;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+        #ventaModal #tablaDetalles tbody td {
+            padding: 10px 12px;
+            border-color: #f1f5f9;
+            vertical-align: middle;
+        }
+        #ventaModal #tablaDetalles tbody tr:hover {
+            background: #faf5ff;
+        }
+        #ventaModal .input-cantidad-item {
+            width: 60px;
+            text-align: center;
+            border-color: #c7d2fe;
+        }
+        #ventaModal .btn-remove-item {
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            border-radius: 8px;
+        }
+        #ventaModal .tabla-empty td {
+            text-align: center;
+            color: #a5b4fc;
+            padding: 32px;
+            font-size: 0.85rem;
+        }
+        #ventaModal .nv-footer {
+            background: linear-gradient(135deg, #312e81, #4f46e5);
+            padding: 16px 24px;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        #ventaModal .btn-buscar-cliente {
+            background: #6366f1;
+            border: none;
+            color: #fff;
+        }
+        #ventaModal .btn-buscar-cliente:hover {
+            background: #4f46e5;
+            color: #fff;
+        }
+        #ventaModal .nv-footer-label {
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.75;
+        }
+        #ventaModal .nv-footer-valor {
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        #ventaModal .nv-total-block .nv-footer-valor {
+            font-size: 1.6rem;
+            line-height: 1;
+        }
+        #ventaModal .nv-efectivo-input {
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.25);
+            color: #fff;
+            font-weight: 700;
+            text-align: right;
+            max-width: 130px;
+        }
+        #ventaModal .nv-efectivo-input:focus {
+            background: rgba(255,255,255,0.18);
+            border-color: rgba(255,255,255,0.5);
+            color: #fff;
+            box-shadow: none;
+        }
+        #ventaModal .nv-efectivo-input::placeholder {
+            color: rgba(255,255,255,0.4);
+        }
+        #ventaModal .vuelto-info {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-top: 6px;
+            letter-spacing: 0.02em;
+        }
+        #ventaModal .vuelto-info.insuficiente { color: #fecaca; }
+        #ventaModal .vuelto-info.ok { color: #bbf7d0; font-size: 1.2rem; }
+        #ventaModal .nv-efectivo-block {
+            min-width: 160px;
+        }
+        #ventaModal .btn-cancelar-venta {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff;
+            font-weight: 600;
+            padding: 10px 20px;
+        }
+        #ventaModal .btn-cancelar-venta:hover {
+            background: rgba(255,255,255,0.25);
+            color: #fff;
+        }
+        #ventaModal .btn-cobrar {
+            background: #10b981;
+            border: none;
+            color: #fff;
+            font-weight: 700;
+            padding: 10px 28px;
+            font-size: 0.9rem;
+        }
+        #ventaModal .btn-cobrar:hover:not(:disabled) {
+            background: #059669;
+            color: #fff;
+        }
+        #ventaModal .btn-cobrar:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        #ventaModal .nv-divider {
+            width: 1px;
+            height: 36px;
+            background: rgba(255,255,255,0.2);
+        }
+        .product-item {
+            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+        }
+        .product-item:last-child {
+            border-bottom: none;
+        }
+        .btn-whatsapp {
+            background-color: #25d366;
+            color: white;
+            border: none;
+        }
+        .btn-pdf {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+        }
+        .btn-pdf:hover {
+            background-color: #b02a37;
+            color: white;
+        }
+        .btn-email {
+            background-color: #6f42c1;
+            color: white;
+            border: none;
+        }
+        .btn-email:hover {
+            background-color: #59359a;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrapper">
+        <!-- Sidebar Fragment -->
+        <div th:replace="~{sidebar :: sidebar('/ventas/notas/listar')}"></div>
+
+        <!-- Contenido Principal -->
+        <div class="main-content">
+            <!-- Top Navbar -->
+            <header class="main-header d-flex justify-content-between align-items-center">
+                <button id="open-sidebar" class="btn btn-link text-dark d-lg-none">
+                    <i class="bi bi-list fs-3"></i>
+                </button>
+                <div class="header-title">
+                    <h1 class="h4 mb-0 fw-bold">Notas de Venta</h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb small mb-0">
+                            <li class="breadcrumb-item"><a th:href="@{/dashboard}">Dashboard</a></li>
+                            <li class="breadcrumb-item">Ventas</li>
+                            <li class="breadcrumb-item active">Notas de Venta</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-primary d-flex align-items-center gap-2 shadow-sm" id="btnNuevaVenta">
+                        <i class="bi bi-plus-circle-fill"></i>
+                        <span class="d-none d-sm-inline">Nueva Nota de Venta</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <div class="p-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                            <span class="fw-600 text-secondary" style="font-size:0.82rem;">Notas de Venta (mostrador)</span>
+                            <div class="search-bar">
+                                <i class="bi bi-search search-icon"></i>
+                                <input type="text" id="buscadorVentas" class="form-control form-control-sm" placeholder="Buscar venta..." style="width:220px;">
+                            </div>
+                        </div>
+                        <table id="tablaVentas" class="table table-hover w-100">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Fecha</th>
+                                    <th>Cliente</th>
+                                    <th>Vendedor</th>
+                                    <th>Total</th>
+                                    <th>Estado</th>
+                                    <th class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Cargado por DataTables -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nueva Nota de Venta -->
+    <div class="modal fade" id="ventaModal" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header nv-header border-0">
+                    <div class="d-flex align-items-center justify-content-between w-100">
+                        <h5 class="modal-title mb-0" id="modalTitle">
+                            <i class="bi bi-receipt-cutoff"></i>
+                            Nueva Nota de Venta
+                        </h5>
+                        <span class="nv-badge">Pernos Vega</span>
+                    </div>
+                    <button type="button" class="btn-close ms-3" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <form id="formVenta">
+                    <input type="hidden" id="editVentaId">
+                    <div class="modal-body nv-body">
+                        <!-- Fila de tarjetas: Cliente | Documento | Pago -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-5">
+                                <div class="nv-card">
+                                    <div class="nv-card-title"><i class="bi bi-person-vcard"></i> Cliente</div>
+                                    <div class="input-group input-group-sm mb-2">
+                                        <input type="text" class="form-control" id="inputBuscarCliente"
+                                            placeholder="DNI (8) o RUC (11 dígitos)..." autocomplete="off"
+                                            maxlength="11" inputmode="numeric">
+                                        <button type="button" class="btn btn-buscar-cliente" id="btnBuscarCliente" title="Consultar DNI/RUC">
+                                            <i class="bi bi-search"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-cliente-general" id="btnClienteGeneral" title="Cliente General">
+                                            <i class="bi bi-person"></i>
+                                        </button>
+                                    </div>
+                                    <div class="cliente-activo" id="clienteActivoInfo"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="nv-card">
+                                    <div class="nv-card-title"><i class="bi bi-file-earmark-text"></i> Comprobante</div>
+                                    <input type="text" class="form-control form-control-sm comprobante-readonly" id="inputComprobante"
+                                        value="NOTA DE VENTA" readonly>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="nv-card">
+                                    <div class="nv-card-title"><i class="bi bi-credit-card"></i> Método de Pago</div>
+                                    <select class="form-select form-select-sm" id="selectMetodoPago">
+                                        <option value="efectivo" selected>Efectivo</option>
+                                        <option value="tarjeta">Tarjeta</option>
+                                        <option value="transferencia">Transferencia</option>
+                                        <option value="yape">Yape / Plin</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Barra de productos -->
+                        <div class="nv-productos-bar mb-3">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="nv-card-title mb-0"><i class="bi bi-box-seam"></i> Agregar Productos</span>
+                                <button type="button" class="btn btn-ver-catalogo btn-sm" id="btnVerCatalogo">
+                                    <i class="bi bi-grid me-1"></i> Catálogo
+                                </button>
+                            </div>
+                            <div class="producto-search-wrap">
+                                <select id="selectProducto" class="form-select select2-producto" style="width: 100%;">
+                                    <option value="">Buscar producto por nombre o código...</option>
+                                    <option th:each="prod : ${productos}"
+                                            th:value="${prod.id}"
+                                            th:data-precio="${prod.precioVenta}"
+                                            th:data-stock="${prod.stock}"
+                                            th:text="${prod.nombre + ' (Stock: ' + prod.stock + ')'}"></option>
+                                </select>
+                            </div>
+                            <input type="hidden" id="inputCantidad" value="1">
+                            <input type="hidden" id="inputPrecio">
+                            <p class="small text-muted mt-2 mb-0" id="infoItems">0 productos agregados</p>
+                        </div>
+
+                        <!-- Tabla de detalle -->
+                        <div class="tabla-detalles-wrap">
+                            <table class="table table-hover align-middle mb-0" id="tablaDetalles">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th class="text-end" style="width:100px;">Precio</th>
+                                        <th class="text-center" style="width:80px;">Cant.</th>
+                                        <th class="text-end" style="width:100px;">Subtotal</th>
+                                        <th class="text-center" style="width:40px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Pie fijo con totales y acciones -->
+                    <div class="nv-footer">
+                        <div class="row align-items-center g-3">
+                            <div class="col-auto">
+                                <div class="nv-footer-label">Descuento</div>
+                                <div class="nv-footer-valor">S/ <span id="descuentoVenta">0.00</span></div>
+                            </div>
+                            <div class="col-auto nv-divider d-none d-md-block"></div>
+                            <div class="col-auto nv-total-block">
+                                <div class="nv-footer-label">Total a pagar</div>
+                                <div class="nv-footer-valor">S/ <span id="totalVenta">0.00</span></div>
+                            </div>
+                            <!-- Campos ocultos para compatibilidad JS -->
+                            <span id="subtotalVenta" class="d-none">0.00</span>
+                            <span id="igvVenta" class="d-none">0.00</span>
+
+                            <div class="col-auto ms-md-auto nv-efectivo-block" id="boxEfectivo">
+                                <div class="nv-footer-label">Efectivo (S/)</div>
+                                <input type="number" class="form-control form-control-sm nv-efectivo-input" id="inputEfectivoRecibido"
+                                    value="0" min="0" step="0.01" placeholder="0.00">
+                                <div class="vuelto-info insuficiente" id="vueltoInfo">Vuelto: insuficiente</div>
+                            </div>
+
+                            <div class="col-auto">
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-cancelar-venta" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="button" class="btn btn-cobrar" id="btnProcesarVenta" disabled>
+                                        <i class="bi bi-check2-circle me-1"></i> Registrar Venta
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Ver Venta -->
+    <div class="modal fade" id="verVentaModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content border-0">
+                <div class="modal-header">
+                    <h5 class="modal-title">Detalle de Venta #<span id="verVentaId"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="verVentaContent">
+                    <!-- Contenido dinámico -->
+                </div>
+                <div class="modal-footer border-0 flex-wrap gap-2">
+                    <button type="button" class="btn btn-whatsapp" id="btnCompartirWhatsApp">
+                        <i class="bi bi-whatsapp"></i> Compartir Pedido
+                    </button>
+                    <button type="button" class="btn btn-pdf" id="btnDescargarPDF">
+                        <i class="bi bi-file-earmark-pdf-fill"></i> Descargar PDF
+                    </button>
+                    <button type="button" class="btn btn-email" id="btnEnviarCorreo">
+                        <i class="bi bi-envelope-fill"></i> Enviar por Correo
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Enviar Correo -->
+    <div class="modal fade" id="emailModal" tabindex="-1" aria-labelledby="emailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header" style="background: linear-gradient(135deg, #6f42c1, #4c2c8d); color: white;">
+                    <h5 class="modal-title" id="emailModalLabel">
+                        <i class="bi bi-envelope-fill me-2"></i>Enviar Nota de Venta
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="text-center mb-3">
+                        <i class="bi bi-envelope-check-fill text-purple" style="font-size: 2.5rem; color: #6f42c1;"></i>
+                    </div>
+                    <p class="text-center mb-1 fw-semibold fs-6" id="emailModalPregunta">¿Desea enviar la Nota de Venta a este correo?</p>
+                    <div class="alert alert-light border text-center py-2 mt-2" id="emailModalCorreoDisplay">
+                        <i class="bi bi-person-circle me-1 text-muted"></i>
+                        <span id="emailModalCorreoTexto" class="fw-bold text-dark">—</span>
+                    </div>
+                    <div id="emailActualizarForm" class="d-none mt-3">
+                        <label class="form-label small fw-bold">Nuevo correo electrónico</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                            <input type="email" class="form-control" id="nuevoCorreoInput" placeholder="nuevo@correo.com">
+                        </div>
+                        <div class="d-flex gap-2 mt-2">
+                            <button type="button" class="btn btn-success btn-sm w-100" id="btnGuardarNuevoCorreo">
+                                <i class="bi bi-check-lg"></i> Guardar y continuar
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnCancelarActualizarCorreo">
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between flex-wrap gap-2">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="btnEmailCancelar">
+                        <i class="bi bi-x-lg"></i> Cancelar
+                    </button>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-warning" id="btnActualizarCorreo">
+                            <i class="bi bi-pencil-fill"></i> Actualizar Correo
+                        </button>
+                        <button type="button" class="btn btn-primary" id="btnSiEnviar">
+                            <i class="bi bi-send-fill"></i> Sí, Enviar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Canje: Boleta / Factura -->
+    <div class="modal fade" id="canjeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-arrow-left-right me-2"></i>Procesar Pago</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="canjeNotaId">
+                    <p class="text-muted small mb-3">¿Cómo desea procesar el pago de esta nota de venta?</p>
+                    <div class="btn-group w-100 mb-3" role="group">
+                        <input type="radio" class="btn-check" name="tipoCanje" id="canjeBoleta" value="BOLETA" checked>
+                        <label class="btn btn-outline-primary" for="canjeBoleta">Convertir a Boleta</label>
+                        <input type="radio" class="btn-check" name="tipoCanje" id="canjeFactura" value="FACTURA">
+                        <label class="btn btn-outline-primary" for="canjeFactura">Convertir a Factura</label>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold" id="canjeLabelDocumento">DNI</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="canjeDniRuc" maxlength="11" inputmode="numeric">
+                                <button type="button" class="btn btn-outline-secondary" id="btnCanjeConsultar">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                            <div class="invalid-feedback d-block" id="canjeDniRuc-error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Nombre Completo</label>
+                            <input type="text" class="form-control" id="canjeNombre">
+                            <div class="invalid-feedback d-block" id="canjeNombre-error"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Teléfono</label>
+                            <input type="text" class="form-control" id="canjeTelefono" maxlength="9">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Correo</label>
+                            <input type="email" class="form-control" id="canjeEmail">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Dirección</label>
+                            <input type="text" class="form-control" id="canjeDireccion">
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-1">
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="canjePagarCuotas">
+                                <label class="form-check-label fw-bold small text-primary" for="canjePagarCuotas">
+                                    <i class="bi bi-calendar-range me-1"></i> ¿Pagar por cuotas?
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="border rounded p-3 mt-2 bg-light d-none" id="canjeCuotasContainer">
+                        <div class="row g-2 align-items-center mb-2">
+                            <div class="col-auto">
+                                <label class="col-form-label small fw-bold">N° de Cuotas:</label>
+                            </div>
+                            <div class="col-auto">
+                                <input type="number" class="form-control form-control-sm" id="canjeNumeroCuotas" value="2" min="2" max="12" style="width: 70px;">
+                            </div>
+                        </div>
+                        <div id="canjeListaCuotas">
+                            <!-- Cuotas dinámicas -->
+                        </div>
+                    </div>
+                    <div class="border rounded p-3 mt-3 bg-light" id="canjeTotalesBox">
+                        <div class="d-flex justify-content-between" id="canjeSubtotalRow"><span>Subtotal</span><strong id="canjeSubtotal">S/. 0.00</strong></div>
+                        <div class="d-flex justify-content-between mt-1" id="canjeIgvRow"><span>IGV (18%)</span><strong id="canjeIgv">S/. 0.00</strong></div>
+                        <div class="d-flex justify-content-between mt-2 fs-5"><span>Total</span><strong id="canjeTotal">S/. 0.00</strong></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btnConfirmarCanje">
+                        <i class="bi bi-check2-circle me-1"></i> Confirmar Canje
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CSRF Meta Tags -->
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <script th:inline="javascript">
+        window.VENTAS_CONFIG = {
+            tipoVista: 'notas',
+            apiListar: '/ventas/api/notas/listar',
+            apiGuardar: '/ventas/api/notas/guardar',
+            permitirCrear: true,
+            permitirCanje: true
+        };
+    </script>
+    <script th:src="@{/js/main.js}"></script>
+    <script th:src="@{/js/ventas.js}"></script>
+</body>
+
+</html>

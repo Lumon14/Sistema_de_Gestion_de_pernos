@@ -5,32 +5,60 @@
  */
 
 $(document).ready(function() {
+    $.fn.dataTable.ext.errMode = 'none';
+
+    const CONFIG = window.VENTAS_CONFIG || {
+        tipoVista: 'notas',
+        apiListar: '/ventas/api/listar',
+        apiGuardar: '/ventas/api/guardar',
+        permitirCrear: true,
+        permitirCanje: true
+    };
+
     // Variables globales
     let dataTable;
     let itemsVenta = [];
     let ventaModal;
     let verVentaModal;
     let emailModal;
+    let canjeModal;
     let selectedClienteId = null;
     let selectedClienteNombre = null;
     let clienteGeneralId = null;
-    let currentVentaForEmail = null; // Venta activa para el modal de correo
+    let currentVentaForEmail = null;
+    let canjeNotaTotal = 0;
 
-    // Inicializar Componentes
     initializeDataTable();
-    ventaModal  = new bootstrap.Modal(document.getElementById('ventaModal'));
-    verVentaModal = new bootstrap.Modal(document.getElementById('verVentaModal'));
-    emailModal  = new bootstrap.Modal(document.getElementById('emailModal'));
-    
-    // Inicializar Select2
-    $('.select2-producto').select2({
-        theme: 'bootstrap-5',
-        dropdownParent: $('#ventaModal'),
-        placeholder: 'Buscar familia, modelo o código...',
-        allowClear: true
-    });
+    if (document.getElementById('ventaModal')) {
+        ventaModal = new bootstrap.Modal(document.getElementById('ventaModal'));
+    }
+    if (document.getElementById('verVentaModal')) {
+        verVentaModal = new bootstrap.Modal(document.getElementById('verVentaModal'));
+    }
+    if (document.getElementById('emailModal')) {
+        emailModal = new bootstrap.Modal(document.getElementById('emailModal'));
+    }
+    if (document.getElementById('canjeModal')) {
+        canjeModal = new bootstrap.Modal(document.getElementById('canjeModal'));
+    }
 
-    cargarClienteGeneral();
+    if (!CONFIG.permitirCrear) {
+        $('#btnNuevaVenta').hide();
+    }
+    
+    // Inicializar Select2 (solo en vista notas)
+    if ($('.select2-producto').length) {
+        $('.select2-producto').select2({
+            theme: 'bootstrap-5',
+            dropdownParent: $('#ventaModal'),
+            placeholder: 'Buscar familia, modelo o código...',
+            allowClear: true
+        });
+    }
+
+    if (CONFIG.permitirCrear) {
+        cargarClienteGeneral();
+    }
 
     // Event Listeners
     setupEventListeners();
@@ -42,8 +70,11 @@ $(document).ready(function() {
         dataTable = $('#tablaVentas').DataTable({
             responsive: true,
             ajax: {
-                url: '/ventas/api/listar',
-                dataSrc: 'data'
+                url: CONFIG.apiListar,
+                dataSrc: 'data',
+                error: function() {
+                    Swal.fire('Error', 'No se pudieron cargar los comprobantes. Reinicie la aplicación e intente de nuevo.', 'error');
+                }
             },
             order: [[1, 'desc']], // Ordenar por fecha descendente
             columns: [
@@ -73,24 +104,46 @@ $(document).ready(function() {
                     render: (data) => `<strong>S/. ${parseFloat(data).toFixed(2)}</strong>`
                 },
                 { 
-                    data: 'estado',
-                    render: (data) => data === 1 ? '<span class="badge bg-success">Procesada</span>' : '<span class="badge bg-danger">Cancelada</span>'
+                    data: 'estadoDocumento',
+                    render: (data, type, row) => {
+                        if (row.estado === 0) {
+                            return '<span class="badge bg-danger">Anulada</span>';
+                        }
+                        const map = {
+                            PENDIENTE: '<span class="badge bg-warning text-dark">Pendiente</span>',
+                            CANJEADA: '<span class="badge bg-info text-dark">Canjeada</span>',
+                            EMITIDA: '<span class="badge bg-success">Emitida</span>',
+                            ANULADA: '<span class="badge bg-danger">Anulada</span>'
+                        };
+                        return map[data] || '<span class="badge bg-success">Procesada</span>';
+                    }
                 },
                 {
                     data: null,
                     className: 'text-center',
-                    render: (data, type, row) => `
-                        <div class="d-flex gap-1 justify-content-center">
+                    render: (data, type, row) => {
+                        let html = `<div class="d-flex gap-1 justify-content-center">
                             <button class="btn-action btn-view action-view" data-id="${row.id}" title="Ver Detalle">
                                 <i class="bi bi-eye-fill"></i>
-                            </button>
-                            ${row.estado === 1 ? `
-                                <button class="btn-action btn-delete action-cancel" data-id="${row.id}" title="Cancelar Venta">
-                                    <i class="bi bi-x-circle-fill"></i>
-                                </button>
-                            ` : ''}
-                        </div>
-                    `
+                            </button>`;
+                        if (CONFIG.tipoVista === 'notas' && row.estadoDocumento === 'PENDIENTE' && row.estado === 1) {
+                            html += `<button class="btn-action btn-edit action-edit" data-id="${row.id}" title="Editar Nota">
+                                <i class="bi bi-pencil-fill"></i>
+                            </button>`;
+                        }
+                        if (CONFIG.permitirCanje && row.estadoDocumento === 'PENDIENTE' && row.estado === 1) {
+                            html += `<button class="btn-action btn-status action-canje" data-id="${row.id}" data-total="${row.total}" title="Procesar Pago">
+                                <i class="bi bi-cash-coin"></i>
+                            </button>`;
+                        }
+                        if (row.estado === 1 && row.estadoDocumento !== 'CANJEADA') {
+                            html += `<button class="btn-action btn-delete action-cancel" data-id="${row.id}" title="Anular">
+                                <i class="bi bi-x-circle-fill"></i>
+                            </button>`;
+                        }
+                        html += `</div>`;
+                        return html;
+                    }
                 }
             ],
             dom: 'rtip',
@@ -123,7 +176,7 @@ $(document).ready(function() {
         if (dniRuc) {
             $('#inputBuscarCliente').val(dniRuc);
             $('#inputComprobante').val(
-                dniRuc.length === 11 ? 'FACTURA' : 'NOTA DE VENTA'
+                CONFIG.tipoVista === 'notas' ? 'NOTA DE VENTA' : (dniRuc.length === 11 ? 'FACTURA' : 'NOTA DE VENTA')
             );
         }
         actualizarEstadoCobro();
@@ -140,66 +193,80 @@ $(document).ready(function() {
      * Event Listeners
      */
     function setupEventListeners() {
-        $('#btnNuevaVenta').on('click', () => {
-            resetVentaForm();
-            ventaModal.show();
-        });
+        if ($('#btnNuevaVenta').length) {
+            $('#btnNuevaVenta').on('click', () => {
+                resetVentaForm();
+                ventaModal.show();
+            });
+        }
 
-        $('#inputBuscarCliente').on('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                buscarClientePorDocumento($(this).val().trim());
-            }
-        });
+        if ($('#inputBuscarCliente').length) {
+            $('#inputBuscarCliente').on('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    buscarClientePorDocumento($(this).val().trim());
+                }
+            });
 
-        $('#btnBuscarCliente').on('click', function() {
-            buscarClientePorDocumento($('#inputBuscarCliente').val().trim());
-        });
+            $('#btnBuscarCliente').on('click', function() {
+                buscarClientePorDocumento($('#inputBuscarCliente').val().trim());
+            });
 
-        $('#btnClienteGeneral').on('click', seleccionarClienteGeneral);
+            $('#btnClienteGeneral').on('click', seleccionarClienteGeneral);
+        }
 
-        $('#selectMetodoPago').on('change', function() {
-            const esEfectivo = $(this).val() === 'efectivo';
-            $('#boxEfectivo').toggleClass('d-none', !esEfectivo);
-            actualizarEstadoCobro();
-        });
+        if ($('#selectMetodoPago').length) {
+            $('#selectMetodoPago').on('change', function() {
+                const esEfectivo = $(this).val() === 'efectivo';
+                $('#boxEfectivo').toggleClass('d-none', !esEfectivo);
+                actualizarEstadoCobro();
+            });
 
-        $('#inputEfectivoRecibido').on('input', calcularVuelto);
+            $('#inputEfectivoRecibido').on('input', calcularVuelto);
+        }
 
-        $('#selectProducto').on('change', function() {
-            const precio = $(this).find(':selected').data('precio');
-            $('#inputPrecio').val(precio ? parseFloat(precio).toFixed(2) : '');
-            if ($(this).val()) {
-                agregarProductoALista();
-            }
-        });
+        if ($('#selectProducto').length) {
+            $('#selectProducto').on('change', function() {
+                const precio = $(this).find(':selected').data('precio');
+                $('#inputPrecio').val(precio ? parseFloat(precio).toFixed(2) : '');
+                if ($(this).val()) {
+                    agregarProductoALista();
+                }
+            });
+        }
 
-        $('#btnVerCatalogo').on('click', () => window.open('/catalogo', '_blank'));
+        if ($('#btnVerCatalogo').length) {
+            $('#btnVerCatalogo').on('click', () => window.open('/catalogo', '_blank'));
+        }
 
-        $('#tablaDetalles').on('click', '.btn-remove-item', function() {
-            const index = $(this).data('index');
-            itemsVenta.splice(index, 1);
-            renderizarListaDetalles();
-        });
+        if ($('#tablaDetalles').length) {
+            $('#tablaDetalles').on('click', '.btn-remove-item', function() {
+                const index = $(this).data('index');
+                itemsVenta.splice(index, 1);
+                renderizarListaDetalles();
+            });
 
-        $('#tablaDetalles').on('change', '.input-cantidad-item', function() {
-            const index = $(this).data('index');
-            const nuevaCantidad = parseInt($(this).val(), 10);
-            const item = itemsVenta[index];
-            if (!item || isNaN(nuevaCantidad) || nuevaCantidad < 1) {
-                $(this).val(item ? item.cantidad : 1);
-                return;
-            }
-            if (nuevaCantidad > item.stock) {
-                Swal.fire('Stock insuficiente', `Solo hay ${item.stock} unidades disponibles`, 'warning');
-                $(this).val(item.cantidad);
-                return;
-            }
-            item.cantidad = nuevaCantidad;
-            renderizarListaDetalles();
-        });
+            $('#tablaDetalles').on('change', '.input-cantidad-item', function() {
+                const index = $(this).data('index');
+                const nuevaCantidad = parseInt($(this).val(), 10);
+                const item = itemsVenta[index];
+                if (!item || isNaN(nuevaCantidad) || nuevaCantidad < 1) {
+                    $(this).val(item ? item.cantidad : 1);
+                    return;
+                }
+                if (nuevaCantidad > item.stock) {
+                    Swal.fire('Stock insuficiente', `Solo hay ${item.stock} unidades disponibles`, 'warning');
+                    $(this).val(item.cantidad);
+                    return;
+                }
+                item.cantidad = nuevaCantidad;
+                renderizarListaDetalles();
+            });
+        }
 
-        $('#btnProcesarVenta').on('click', procesarVenta);
+        if ($('#btnProcesarVenta').length) {
+            $('#btnProcesarVenta').on('click', procesarVenta);
+        }
 
         $('#tablaVentas tbody').on('click', '.action-view', function() {
             const id = $(this).data('id');
@@ -210,6 +277,34 @@ $(document).ready(function() {
             const id = $(this).data('id');
             confirmarCancelacion(id);
         });
+
+        $('#tablaVentas tbody').on('click', '.action-canje', function() {
+            abrirModalCanje($(this).data('id'), parseFloat($(this).data('total')) || 0);
+        });
+
+        $('#tablaVentas tbody').on('click', '.action-edit', function() {
+            const id = $(this).data('id');
+            abrirEditarNotaVenta(id);
+        });
+
+        if ($('#canjeModal').length) {
+            $('input[name="tipoCanje"]').on('change', actualizarFormularioCanje);
+            $('#canjeDniRuc').on('input', function() {
+                const max = $('input[name="tipoCanje"]:checked').val() === 'FACTURA' ? 11 : 8;
+                this.value = this.value.replace(/\D/g, '').slice(0, max);
+            });
+            $('#btnCanjeConsultar').on('click', consultarClienteCanje);
+            $('#btnConfirmarCanje').on('click', confirmarCanje);
+            $('#canjePagarCuotas').on('change', function() {
+                if (this.checked) {
+                    $('#canjeCuotasContainer').removeClass('d-none');
+                    generarListaCuotas();
+                } else {
+                    $('#canjeCuotasContainer').addClass('d-none');
+                }
+            });
+            $('#canjeNumeroCuotas').on('input change', generarListaCuotas);
+        }
 
         $('#btnCompartirWhatsApp').on('click', compartirPorWhatsApp);
 
@@ -225,6 +320,9 @@ $(document).ready(function() {
             if (!venta) return;
             currentVentaForEmail = venta;
             const correo = venta.cliente && venta.cliente.email ? venta.cliente.email : null;
+            const etiqueta = obtenerEtiquetaComprobante(venta);
+            $('#emailModalLabel').html(`<i class="bi bi-envelope-fill me-2"></i>Enviar ${etiqueta}`);
+            $('#emailModalPregunta').text(`¿Desea enviar la ${etiqueta} a este correo?`);
             $('#emailModalCorreoTexto').text(correo || 'Sin correo registrado');
             $('#emailActualizarForm').addClass('d-none');
             $('#nuevoCorreoInput').val('');
@@ -562,13 +660,24 @@ $(document).ready(function() {
         $('#infoItems').text(`${itemsVenta.length} producto${itemsVenta.length === 1 ? '' : 's'} agregado${itemsVenta.length === 1 ? '' : 's'}`);
     }
 
+    function esComprobanteConIgv(venta) {
+        return venta && venta.tipoComprobante === 'FACTURA';
+    }
+
+    function obtenerEtiquetaComprobante(venta) {
+        if (!venta || !venta.tipoComprobante) return 'Nota de Venta';
+        const map = {
+            NOTA: 'Nota de Venta',
+            BOLETA: 'Boleta',
+            FACTURA: 'Factura'
+        };
+        return map[venta.tipoComprobante] || venta.tipoComprobante;
+    }
+
     function actualizarResumen(total) {
         const totalRedondeado = Math.round(total * 100) / 100;
-        const subtotal = Math.round((totalRedondeado / 1.18) * 100) / 100;
-        const igv = Math.round((totalRedondeado - subtotal) * 100) / 100;
-
-        $('#subtotalVenta').text(subtotal.toFixed(2));
-        $('#igvVenta').text(igv.toFixed(2));
+        $('#subtotalVenta').text(totalRedondeado.toFixed(2));
+        $('#igvVenta').text('0.00');
         $('#descuentoVenta').text('0.00');
         $('#totalVenta').text(totalRedondeado.toFixed(2));
         calcularVuelto();
@@ -593,7 +702,7 @@ $(document).ready(function() {
         } else if (recibido < total) {
             $vuelto.removeClass('ok').addClass('insuficiente').text('Vuelto: Monto insuficiente');
         } else {
-            $vuelto.removeClass('insuficiente').addClass('ok').text(`Vuelto: S/ ${vuelto.toFixed(2)}`);
+            $vuelto.removeClass('insuficiente').addClass('ok').text(`VUELTO: S/ ${vuelto.toFixed(2)}`);
         }
 
         actualizarEstadoCobro();
@@ -638,6 +747,7 @@ $(document).ready(function() {
             }
         }
 
+        const editId = $('#editVentaId').val();
         const ventaData = {
             cliente: { id: selectedClienteId },
             total: total,
@@ -648,9 +758,13 @@ $(document).ready(function() {
             }))
         };
 
+        const apiEndpoint = editId ? `/ventas/api/notas/${editId}/editar` : CONFIG.apiGuardar;
+        const confirmTitle = editId ? '¿Guardar cambios?' : '¿Confirmar cobro?';
+        const confirmBtnText = editId ? 'Sí, guardar' : 'Sí, cobrar';
+
         const metodoLabel = $('#selectMetodoPago option:selected').text().trim();
         Swal.fire({
-            title: '¿Confirmar cobro?',
+            title: confirmTitle,
             html: `
                 <p class="mb-1"><strong>Cliente:</strong> ${selectedClienteNombre || '—'}</p>
                 <p class="mb-1"><strong>Método:</strong> ${metodoLabel}</p>
@@ -658,12 +772,12 @@ $(document).ready(function() {
             `,
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Sí, cobrar',
+            confirmButtonText: confirmBtnText,
             cancelButtonText: 'Revisar'
         }).then((result) => {
             if (result.isConfirmed) {
                 showLoading(true);
-                fetch('/ventas/api/guardar', {
+                fetch(apiEndpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -675,7 +789,7 @@ $(document).ready(function() {
                 .then(data => {
                     if (data.success) {
                         ventaModal.hide();
-                        Swal.fire('¡Éxito!', 'Venta registrada correctamente', 'success');
+                        Swal.fire('¡Éxito!', editId ? 'Nota actualizada correctamente' : 'Venta registrada correctamente', 'success');
                         dataTable.ajax.reload();
                     } else {
                         Swal.fire('Error', data.message, 'error');
@@ -706,9 +820,14 @@ $(document).ready(function() {
                         comprobanteInfo = `<p class="mb-1"><strong>Comprobante:</strong> <span class="badge bg-secondary">Nota de Venta #${venta.id}</span></p>`;
                     }
 
+                    const clienteDni = venta.cliente && venta.cliente.dniRuc && venta.cliente.dniRuc !== '00000000'
+                        ? venta.cliente.dniRuc
+                        : (venta.cliente && venta.cliente.dniRuc ? venta.cliente.dniRuc : '-');
+
                     let html = `
                         <div class="mb-3">
                             <p class="mb-1"><strong>Cliente:</strong> ${venta.cliente ? venta.cliente.nombre : 'General'}</p>
+                            <p class="mb-1"><strong>DNI/RUC:</strong> ${clienteDni}</p>
                             ${comprobanteInfo}
                             <p class="mb-1"><strong>Fecha:</strong> ${new Date(venta.fecha).toLocaleString()}</p>
                             <p class="mb-1"><strong>Vendedor:</strong> ${venta.usuario ? venta.usuario.nombre : '-'}</p>
@@ -740,21 +859,27 @@ $(document).ready(function() {
                         `;
                     });
 
-                    // Calcular desglose si las columnas vienen nulas por registros antiguos
-                    const subtotalVenta = venta.subtotal !== null && venta.subtotal !== undefined ? venta.subtotal : (venta.total / 1.18);
-                    const igvVenta = venta.igv !== null && venta.igv !== undefined ? venta.igv : (venta.total - subtotalVenta);
+                    const mostrarIgv = esComprobanteConIgv(venta);
+                    const subtotalVenta = mostrarIgv
+                        ? (venta.subtotal != null ? venta.subtotal : venta.total / 1.18)
+                        : venta.total;
+                    const igvVenta = mostrarIgv
+                        ? (venta.igv != null ? venta.igv : venta.total - subtotalVenta)
+                        : 0;
 
+                    html += `</tbody><tfoot>`;
+                    if (mostrarIgv) {
+                        html += `
+                                <tr>
+                                    <th colspan="4" class="text-end text-muted small py-1">Subtotal</th>
+                                    <th class="text-end text-muted small py-1">S/. ${subtotalVenta.toFixed(2)}</th>
+                                </tr>
+                                <tr>
+                                    <th colspan="4" class="text-end text-muted small py-1">IGV (18%)</th>
+                                    <th class="text-end text-muted small py-1">S/. ${igvVenta.toFixed(2)}</th>
+                                </tr>`;
+                    }
                     html += `
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <th colspan="4" class="text-end text-muted font-monospace small py-1">SUBTOTAL</th>
-                                    <th class="text-end text-muted font-monospace small py-1">S/. ${subtotalVenta.toFixed(2)}</th>
-                                </tr>
-                                <tr>
-                                    <th colspan="4" class="text-end text-muted font-monospace small py-1">IGV (18%)</th>
-                                    <th class="text-end text-muted font-monospace small py-1">S/. ${igvVenta.toFixed(2)}</th>
-                                </tr>
                                 <tr>
                                     <th colspan="4" class="text-end py-2">TOTAL</th>
                                     <th class="text-end text-primary fs-5 py-2">S/. ${venta.total.toFixed(2)}</th>
@@ -824,18 +949,24 @@ $(document).ready(function() {
             mensaje += `${d.cantidad} x ${d.producto.nombre} - S/. ${subtotalVal.toFixed(2)}%0A`;
         });
 
-        const subtotalVenta = venta.subtotal !== null && venta.subtotal !== undefined ? venta.subtotal : (venta.total / 1.18);
-        const igvVenta = venta.igv !== null && venta.igv !== undefined ? venta.igv : (venta.total - subtotalVenta);
-
         mensaje += `--------------------------%0A`;
-        mensaje += `*Subtotal:* S/. ${subtotalVenta.toFixed(2)}%0A`;
-        mensaje += `*IGV (18%):* S/. ${igvVenta.toFixed(2)}%0A`;
+        if (esComprobanteConIgv(venta)) {
+            const subtotalVenta = venta.subtotal != null ? venta.subtotal : venta.total / 1.18;
+            const igvVenta = venta.igv != null ? venta.igv : venta.total - subtotalVenta;
+            mensaje += `*Subtotal:* S/. ${subtotalVenta.toFixed(2)}%0A`;
+            mensaje += `*IGV (18%):* S/. ${igvVenta.toFixed(2)}%0A`;
+        }
         mensaje += `*TOTAL A PAGAR: S/. ${venta.total.toFixed(2)}*%0A`;
         mensaje += `%0A¡Gracias por su preferencia!`;
 
-        const url = `https://wa.me/51968871577?text=${mensaje}`;
-        // Nota: WhatsApp Web no soporta adjuntos directos por URL
-        window.open(url, '_blank');
+        let numeroWa = '51968871577';
+        if (venta.cliente && venta.cliente.telefono) {
+            const tel = venta.cliente.telefono.replace(/\D/g, '');
+            if (tel.length >= 9) {
+                numeroWa = tel.startsWith('51') ? tel : '51' + tel;
+            }
+        }
+        window.open(`https://wa.me/${numeroWa}?text=${mensaje}`, '_blank');
     }
 
     /**
@@ -848,123 +979,166 @@ $(document).ready(function() {
         function crearPDF() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-            const margen = 15;
-            let y = 20;
+            const pageW = 210;
+            const margen = 18;
+            const contentW = pageW - margen * 2;
+            const mostrarIgv = esComprobanteConIgv(venta);
+            const colorPrimary = [30, 58, 95];
+            const colorAccent = [14, 165, 233];
+            const colorMuted = [100, 116, 139];
+            let y = 0;
 
             // Encabezado
-            doc.setFillColor(13, 110, 253);
-            doc.rect(0, 0, 210, 40, 'F');
+            doc.setFillColor(...colorPrimary);
+            doc.rect(0, 0, pageW, 34, 'F');
+            doc.setFillColor(...colorAccent);
+            doc.rect(0, 34, pageW, 1.5, 'F');
+
             doc.setTextColor(255, 255, 255);
-            doc.setFontSize(20);
             doc.setFont('helvetica', 'bold');
-            doc.text('PERNOS VEGA', 105, 15, { align: 'center' });
-            doc.setFontSize(11);
+            doc.setFontSize(20);
+            doc.text('PERNOS VEGA', margen, 13);
             doc.setFont('helvetica', 'normal');
-            doc.text('Ferretería y Suministros Industriales', 105, 23, { align: 'center' });
-            doc.text('Tel: +51 968 871 577', 105, 30, { align: 'center' });
+            doc.setFontSize(9);
+            doc.text('Ferretería y Suministros Industriales', margen, 20);
+            doc.setFontSize(8);
+            doc.text('Tel: +51 968 871 577', margen, 26);
 
-            y = 50;
-            doc.setTextColor(0, 0, 0);
-
-            // Título comprobante
             const comprobante = (venta.tipoComprobante && venta.serie && venta.numeroComprobante)
-                ? `${venta.tipoComprobante} ${venta.serie}-${venta.numeroComprobante}`
+                ? `${venta.tipoComprobante} ${venta.serie}-${String(venta.numeroComprobante).padStart(8, '0')}`
                 : `NOTA DE VENTA #${venta.id}`;
 
-            doc.setFontSize(14);
             doc.setFont('helvetica', 'bold');
-            doc.text(comprobante, 105, y, { align: 'center' });
-            y += 10;
-
-            // Datos del cliente y fecha
-            doc.setFontSize(10);
+            doc.setFontSize(11);
+            doc.text(comprobante, pageW - margen, 13, { align: 'right' });
             doc.setFont('helvetica', 'normal');
-            const clienteNombre = venta.cliente ? venta.cliente.nombre : 'General';
-            const clienteDni   = venta.cliente ? (venta.cliente.dniRuc || '-') : '-';
-            const clienteEmail = venta.cliente ? (venta.cliente.email || '-') : '-';
+            doc.setFontSize(8);
             const fecha = new Date(venta.fecha).toLocaleString('es-PE');
+            doc.text(fecha, pageW - margen, 20, { align: 'right' });
+
+            y = 44;
+            doc.setTextColor(30, 41, 59);
+
+            // Datos cliente / vendedor
+            doc.setDrawColor(226, 232, 240);
+            doc.setFillColor(248, 250, 252);
+            doc.rect(margen, y, contentW, 28, 'FD');
+
+            const clienteNombre = venta.cliente ? venta.cliente.nombre : 'Cliente General';
+            const clienteDni = venta.cliente ? (venta.cliente.dniRuc || '-') : '-';
+            const clienteEmail = venta.cliente ? (venta.cliente.email || '-') : '-';
             const vendedor = venta.usuario ? venta.usuario.nombre : '-';
 
-            doc.setFillColor(245, 245, 245);
-            doc.rect(margen, y, 180, 28, 'F');
-            doc.setFont('helvetica', 'bold');
-            doc.text('Cliente:', margen + 3, y + 7);
-            doc.text('DNI/RUC:', margen + 3, y + 13);
-            doc.text('Correo:', margen + 3, y + 19);
-            doc.text('Fecha:', margen + 95, y + 7);
-            doc.text('Vendedor:', margen + 95, y + 13);
-            doc.setFont('helvetica', 'normal');
-            doc.text(clienteNombre, margen + 22, y + 7);
-            doc.text(clienteDni,    margen + 22, y + 13);
-            doc.text(clienteEmail,  margen + 22, y + 19);
-            doc.text(fecha,         margen + 112, y + 7);
-            doc.text(vendedor,      margen + 118, y + 13);
-            y += 35;
+            doc.setFontSize(8);
+            doc.setTextColor(...colorMuted);
+            doc.text('CLIENTE', margen + 4, y + 7);
+            doc.text('DOCUMENTO', margen + 4, y + 15);
+            doc.text('CORREO', margen + 4, y + 23);
+            doc.text('VENDEDOR', margen + 100, y + 7);
 
-            // Cabecera tabla
-            doc.setFillColor(13, 110, 253);
-            doc.rect(margen, y, 180, 8, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9.5);
+            doc.setTextColor(30, 41, 59);
+            doc.text(clienteNombre.substring(0, 45), margen + 4, y + 11);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.text(clienteDni, margen + 4, y + 19);
+            doc.text(clienteEmail.substring(0, 40), margen + 4, y + 27);
+            doc.text(vendedor, margen + 100, y + 11);
+
+            y += 36;
+
+            // Tabla productos
+            const colProd = margen + 2;
+            const colCant = margen + 118;
+            const colPrecio = margen + 138;
+            const colSub = margen + contentW - 2;
+            const rowH = 8;
+
+            doc.setFillColor(...colorPrimary);
+            doc.rect(margen, y, contentW, rowH, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(9);
-            doc.text('Producto',       margen + 2, y + 5.5);
-            doc.text('Cant.',          margen + 100, y + 5.5, { align: 'center' });
-            doc.text('Precio Unit.',   margen + 130, y + 5.5, { align: 'center' });
-            doc.text('Subtotal',       margen + 175, y + 5.5, { align: 'right' });
-            y += 8;
+            doc.setFontSize(8.5);
+            doc.text('PRODUCTO', colProd, y + 5.5);
+            doc.text('CANT.', colCant, y + 5.5, { align: 'center' });
+            doc.text('P. UNIT.', colPrecio, y + 5.5, { align: 'center' });
+            doc.text('SUBTOTAL', colSub, y + 5.5, { align: 'right' });
+            y += rowH;
 
-            // Filas de productos
-            doc.setTextColor(0, 0, 0);
             doc.setFont('helvetica', 'normal');
+            doc.setTextColor(51, 65, 85);
             venta.detalles.forEach((d, i) => {
-                const bgColor = i % 2 === 0 ? [255, 255, 255] : [248, 249, 250];
-                doc.setFillColor(...bgColor);
-                doc.rect(margen, y, 180, 7, 'F');
+                if (i % 2 === 1) {
+                    doc.setFillColor(248, 250, 252);
+                    doc.rect(margen, y, contentW, rowH, 'F');
+                }
                 const desc = d.descuento || 0;
-                const sub  = d.subtotal !== null && d.subtotal !== undefined
-                    ? d.subtotal : (d.cantidad * d.precioVenta - desc);
-                doc.text(d.producto.nombre.substring(0, 50), margen + 2, y + 5);
-                doc.text(String(d.cantidad),                  margen + 100, y + 5, { align: 'center' });
-                doc.text(`S/. ${d.precioVenta.toFixed(2)}`,  margen + 130, y + 5, { align: 'center' });
-                doc.text(`S/. ${sub.toFixed(2)}`,            margen + 175, y + 5, { align: 'right' });
-                y += 7;
+                const sub = d.subtotal != null ? d.subtotal : (d.cantidad * d.precioVenta - desc);
+                const nombre = d.producto.nombre.length > 52 ? d.producto.nombre.substring(0, 49) + '...' : d.producto.nombre;
+                doc.text(nombre, colProd, y + 5.5);
+                doc.text(String(d.cantidad), colCant, y + 5.5, { align: 'center' });
+                doc.text(`S/. ${d.precioVenta.toFixed(2)}`, colPrecio, y + 5.5, { align: 'center' });
+                doc.text(`S/. ${sub.toFixed(2)}`, colSub, y + 5.5, { align: 'right' });
+                y += rowH;
             });
 
-            // Totales
-            const subtotalVenta = venta.subtotal != null ? venta.subtotal : (venta.total / 1.18);
-            const igvVenta      = venta.igv != null ? venta.igv : (venta.total - subtotalVenta);
-            y += 4;
-            doc.setDrawColor(220, 220, 220);
-            doc.line(margen, y, margen + 180, y);
-            y += 5;
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'normal');
-            doc.text('Subtotal:', margen + 130, y, { align: 'right' });
-            doc.text(`S/. ${subtotalVenta.toFixed(2)}`, margen + 178, y, { align: 'right' });
+            doc.setDrawColor(226, 232, 240);
+            doc.line(margen, y, margen + contentW, y);
             y += 6;
-            doc.text('IGV (18%):', margen + 130, y, { align: 'right' });
-            doc.text(`S/. ${igvVenta.toFixed(2)}`, margen + 178, y, { align: 'right' });
-            y += 7;
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'bold');
-            doc.setFillColor(13, 110, 253);
-            doc.rect(margen + 100, y - 3, 80, 10, 'F');
-            doc.setTextColor(255, 255, 255);
-            doc.text('TOTAL:', margen + 130, y + 4, { align: 'right' });
-            doc.text(`S/. ${venta.total.toFixed(2)}`, margen + 178, y + 4, { align: 'right' });
 
-            // Pie
-            doc.setTextColor(150, 150, 150);
+            // Totales
+            const totalsX = margen + contentW - 78;
+            const totalsW = 78;
+            const labelX = totalsX + 4;
+            const valueX = totalsX + totalsW - 4;
+
+            if (mostrarIgv) {
+                const subtotalVenta = venta.subtotal != null ? venta.subtotal : venta.total / 1.18;
+                const igvVenta = venta.igv != null ? venta.igv : venta.total - subtotalVenta;
+                doc.setFontSize(9);
+                doc.setTextColor(...colorMuted);
+                doc.text('Subtotal', labelX, y);
+                doc.setTextColor(51, 65, 85);
+                doc.text(`S/. ${subtotalVenta.toFixed(2)}`, valueX, y, { align: 'right' });
+                y += 6;
+                doc.setTextColor(...colorMuted);
+                doc.text('IGV (18%)', labelX, y);
+                doc.setTextColor(51, 65, 85);
+                doc.text(`S/. ${igvVenta.toFixed(2)}`, valueX, y, { align: 'right' });
+                y += 8;
+            } else {
+                y += 2;
+            }
+
+            doc.setFillColor(...colorPrimary);
+            doc.rect(totalsX, y - 4, totalsW, 12, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.text('TOTAL', labelX, y + 3.5);
+            doc.text(`S/. ${venta.total.toFixed(2)}`, valueX, y + 3.5, { align: 'right' });
+
+            // Pie de página
+            const footerY = 278;
+            doc.setDrawColor(...colorAccent);
+            doc.setLineWidth(0.4);
+            doc.line(margen, footerY, margen + contentW, footerY);
+            doc.setFont('helvetica', 'normal');
             doc.setFontSize(8);
-            doc.setFont('helvetica', 'italic');
-            doc.text('¡Gracias por su preferencia! — Pernos Vega', 105, 285, { align: 'center' });
+            doc.setTextColor(...colorMuted);
+            doc.text('¡Gracias por su preferencia!', pageW / 2, footerY + 6, { align: 'center' });
+            doc.text('PERNOS VEGA — Ferretería y Suministros Industriales', pageW / 2, footerY + 11, { align: 'center' });
 
             return doc;
         }
 
         function ejecutar() {
             const doc = crearPDF();
-            const nombreArchivo = `NotaVenta_${venta.id}_${venta.serie || 'NV'}-${venta.numeroComprobante || venta.id}.pdf`;
+            const tipo = venta.tipoComprobante ? venta.tipoComprobante.replace(/\s+/g, '_') : 'NotaVenta';
+            const num = venta.numeroComprobante || venta.id;
+            const serie = venta.serie || 'NV';
+            const nombreArchivo = `${tipo}_${serie}-${num}.pdf`;
             if (returnBlob) {
                 return Promise.resolve({ blob: doc.output('blob'), nombre: nombreArchivo });
             } else {
@@ -1034,6 +1208,9 @@ $(document).ready(function() {
         itemsVenta = [];
         selectedClienteId = null;
         selectedClienteNombre = null;
+        $('#editVentaId').val('');
+        $('#modalTitle').html('<i class="bi bi-receipt-cutoff"></i> Nueva Nota de Venta');
+        $('#btnProcesarVenta').html('<i class="bi bi-check2-circle me-1"></i> Registrar Venta');
         $('#inputBuscarCliente').val('');
         $('#clienteActivoInfo').empty();
         $('#selectProducto').val(null).trigger('change');
@@ -1057,6 +1234,258 @@ $(document).ready(function() {
             });
         } else {
             Swal.close();
+        }
+    }
+
+    function abrirModalCanje(notaId, total) {
+        canjeNotaTotal = total;
+        $('#canjeNotaId').val(notaId);
+        $('#canjeBoleta').prop('checked', true);
+        $('#canjeDniRuc, #canjeNombre, #canjeTelefono, #canjeEmail, #canjeDireccion').val('');
+        $('#canjeNombre').removeData('cliente-id');
+        $('.invalid-feedback[id^="canje"]').text('');
+        $('#canjeDniRuc, #canjeNombre').removeClass('is-invalid');
+        
+        $('#canjePagarCuotas').prop('checked', false);
+        $('#canjeCuotasContainer').addClass('d-none');
+        $('#canjeListaCuotas').empty();
+        $('#canjeNumeroCuotas').val(2);
+
+        actualizarFormularioCanje();
+        canjeModal.show();
+
+        fetch(`/ventas/api/${notaId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success || !data.data || !data.data.cliente) return;
+                const c = data.data.cliente;
+                const dni = c.dniRuc && c.dniRuc !== '00000000' ? c.dniRuc : '';
+                $('#canjeDniRuc').val(dni);
+                $('#canjeNombre').val(c.nombre || '');
+                $('#canjeTelefono').val(c.telefono || '');
+                $('#canjeEmail').val(c.email || '');
+                $('#canjeDireccion').val(c.direccion || '');
+                if (c.id) {
+                    $('#canjeNombre').data('cliente-id', c.id);
+                }
+            })
+            .catch(() => {});
+    }
+
+    function actualizarFormularioCanje() {
+        const esFactura = $('input[name="tipoCanje"]:checked').val() === 'FACTURA';
+        $('#canjeLabelDocumento').text(esFactura ? 'RUC' : 'DNI');
+        $('#canjeDniRuc').attr('maxlength', esFactura ? 11 : 8);
+        const total = canjeNotaTotal;
+        if (esFactura) {
+            const subtotal = Math.round((total / 1.18) * 100) / 100;
+            const igv = Math.round((total - subtotal) * 100) / 100;
+            $('#canjeSubtotal').text(`S/. ${subtotal.toFixed(2)}`);
+            $('#canjeIgv').text(`S/. ${igv.toFixed(2)}`);
+            $('#canjeSubtotalRow').show();
+            $('#canjeIgvRow').show();
+        } else {
+            $('#canjeSubtotalRow').hide();
+            $('#canjeIgvRow').hide();
+        }
+        $('#canjeTotal').text(`S/. ${total.toFixed(2)}`);
+    }
+
+    function consultarClienteCanje() {
+        const doc = $('#canjeDniRuc').val().trim();
+        const esFactura = $('input[name="tipoCanje"]:checked').val() === 'FACTURA';
+        if (!doc) return;
+        if (esFactura && doc.length !== 11) {
+            $('#canjeDniRuc').addClass('is-invalid');
+            $('#canjeDniRuc-error').text('ingrese un dni o ruc valido');
+            return;
+        }
+        if (!esFactura && doc.length !== 8) {
+            $('#canjeDniRuc').addClass('is-invalid');
+            $('#canjeDniRuc-error').text('ingrese un dni o ruc valido');
+            return;
+        }
+
+        fetch(`/clientes/api/buscar/${doc}`)
+            .then(res => res.json())
+            .then(data => {
+                $('#canjeTelefono, #canjeEmail, #canjeDireccion').val('');
+                if (data.success && data.data) {
+                    const c = data.data;
+                    $('#canjeNombre').val(c.nombre || '');
+                    $('#canjeTelefono').val(c.telefono || '');
+                    $('#canjeEmail').val(c.email || '');
+                    $('#canjeDireccion').val(c.direccion || '');
+                    $('#canjeNombre').data('cliente-id', c.id);
+                } else {
+                    fetch(`/clientes/api/consultar-externo/${doc}`)
+                        .then(r => r.json())
+                        .then(ext => {
+                            if (ext.success) {
+                                $('#canjeNombre').val(ext.nombre || '');
+                            } else {
+                                Swal.fire('Información', ext.message || 'No se encontró el documento', 'info');
+                            }
+                        });
+                }
+            });
+    }
+
+    function confirmarCanje() {
+        const notaId = $('#canjeNotaId').val();
+        const tipoDestino = $('input[name="tipoCanje"]:checked').val();
+        const dniRuc = $('#canjeDniRuc').val().trim();
+        const nombre = $('#canjeNombre').val().trim();
+        const clienteId = $('#canjeNombre').data('cliente-id');
+
+        if (tipoDestino === 'FACTURA' && !/^\d{11}$/.test(dniRuc)) {
+            $('#canjeDniRuc').addClass('is-invalid');
+            $('#canjeDniRuc-error').text('Para Factura ingrese un RUC válido de 11 dígitos');
+            return;
+        }
+        if (tipoDestino === 'BOLETA' && dniRuc && !/^\d{8}$/.test(dniRuc)) {
+            $('#canjeDniRuc').addClass('is-invalid');
+            $('#canjeDniRuc-error').text('ingrese un dni o ruc valido');
+            return;
+        }
+        if (!nombre) {
+            $('#canjeNombre').addClass('is-invalid');
+            $('#canjeNombre-error').text('El nombre completo es obligatorio');
+            return;
+        }
+
+        let pagarCuotas = $('#canjePagarCuotas').is(':checked');
+        let cuotas = [];
+        if (pagarCuotas) {
+            let sumCuotas = 0;
+            let validationFailed = false;
+            $('.canje-cuota-row').each(function() {
+                const monto = parseFloat($(this).find('.canje-monto-cuota').val()) || 0;
+                const fechaPago = $(this).find('.canje-fecha-cuota').val();
+                if (monto <= 0) {
+                    Swal.fire('Atención', 'El monto de todas las cuotas debe ser mayor a cero', 'warning');
+                    validationFailed = true;
+                    return false;
+                }
+                if (!fechaPago) {
+                    Swal.fire('Atención', 'Debe seleccionar una fecha de pago para todas las cuotas', 'warning');
+                    validationFailed = true;
+                    return false;
+                }
+                cuotas.push({ monto, fechaPago });
+                sumCuotas += monto;
+            });
+            if (validationFailed) return;
+            sumCuotas = Math.round(sumCuotas * 100) / 100;
+            if (Math.abs(sumCuotas - canjeNotaTotal) > 0.05) {
+                Swal.fire('Atención', `La suma de las cuotas (S/ ${sumCuotas.toFixed(2)}) no coincide con el total de la venta (S/ ${canjeNotaTotal.toFixed(2)})`, 'warning');
+                return;
+            }
+        }
+
+        const payload = {
+            tipoDestino,
+            dniRuc: dniRuc || null,
+            nombre,
+            telefono: $('#canjeTelefono').val().trim(),
+            email: $('#canjeEmail').val().trim(),
+            direccion: $('#canjeDireccion').val().trim(),
+            clienteId: clienteId || null,
+            pagarCuotas,
+            cuotas
+        };
+
+        showLoading(true);
+        fetch(`/ventas/api/notas-venta/${notaId}/canjear`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getCsrfHeaders() },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                canjeModal.hide();
+                Swal.fire('Éxito', data.message, 'success');
+                dataTable.ajax.reload();
+            } else {
+                Swal.fire('Error', data.message, 'error');
+            }
+        })
+        .catch(() => Swal.fire('Error', 'No se pudo procesar el canje', 'error'))
+        .finally(() => showLoading(false));
+    }
+
+    function abrirEditarNotaVenta(id) {
+        showLoading(true);
+        fetch(`/ventas/api/${id}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    resetVentaForm();
+                    const venta = data.data;
+                    $('#editVentaId').val(venta.id);
+                    $('#modalTitle').html('<i class="bi bi-pencil-square"></i> Editar Nota de Venta #' + venta.id);
+                    $('#btnProcesarVenta').html('<i class="bi bi-save me-1"></i> Guardar Cambios');
+                    
+                    if (venta.cliente) {
+                        selectedClienteId = venta.cliente.id;
+                        selectedClienteNombre = venta.cliente.nombre;
+                        $('#inputBuscarCliente').val(venta.cliente.dniRuc || '');
+                        $('#clienteActivoInfo').html(`<i class="bi bi-check-circle-fill text-success"></i> ${venta.cliente.nombre} (${venta.cliente.dniRuc || 'Sin doc.'})`);
+                    }
+                    
+                    itemsVenta = venta.detalles.map(d => ({
+                        productoId: d.producto.id,
+                        nombre: d.producto.nombre,
+                        cantidad: d.cantidad,
+                        precio: d.precioVenta,
+                        stock: d.producto.stock + d.cantidad
+                    }));
+                    
+                    renderizarListaDetalles();
+                    ventaModal.show();
+                }
+            })
+            .finally(() => showLoading(false));
+    }
+
+    function generarListaCuotas() {
+        const numCuotas = parseInt($('#canjeNumeroCuotas').val(), 10) || 2;
+        const total = canjeNotaTotal;
+        const baseMonto = Math.floor((total / numCuotas) * 100) / 100;
+        let residual = Math.round((total - (baseMonto * numCuotas)) * 100) / 100;
+        
+        const $lista = $('#canjeListaCuotas');
+        $lista.empty();
+        
+        const hoy = new Date();
+        for (let i = 1; i <= numCuotas; i++) {
+            let cuotaMonto = baseMonto;
+            if (i === numCuotas) {
+                cuotaMonto = Math.round((baseMonto + residual) * 100) / 100;
+            }
+            
+            const fechaCuota = new Date(hoy);
+            fechaCuota.setDate(hoy.getDate() + (i * 30));
+            const yyyy = fechaCuota.getFullYear();
+            const mm = String(fechaCuota.getMonth() + 1).padStart(2, '0');
+            const dd = String(fechaCuota.getDate()).padStart(2, '0');
+            const fechaStr = `${yyyy}-${mm}-${dd}`;
+            
+            $lista.append(`
+                <div class="row g-2 mb-2 align-items-center canje-cuota-row">
+                    <div class="col-sm-2 small fw-bold text-muted">Cuota ${i}:</div>
+                    <div class="col-sm-5">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">S/</span>
+                            <input type="number" class="form-control form-control-sm canje-monto-cuota" value="${cuotaMonto.toFixed(2)}" min="0.01" step="0.01">
+                        </div>
+                    </div>
+                    <div class="col-sm-5">
+                        <input type="date" class="form-control form-control-sm canje-fecha-cuota" value="${fechaStr}">
+                    </div>
+                </div>
+            `);
         }
     }
 });

@@ -55,9 +55,6 @@ $(document).ready(function () {
                             <button class="btn-action btn-view btn-update-stock" data-id="${row.id}" data-nombre="${row.nombre}" data-stock="${row.stock || 0}" title="Actualizar stock">
                                 <i class="bi bi-arrow-repeat"></i>
                             </button>
-                            <button class="btn-action btn-status btn-status-inv" data-id="${row.id}" title="Cambiar estado">
-                                <i class="bi bi-slash-circle-fill"></i>
-                            </button>
                             <button class="btn-action btn-delete btn-delete-inv" data-id="${row.id}" title="Eliminar">
                                 <i class="bi bi-trash3-fill"></i>
                             </button>
@@ -156,30 +153,11 @@ $(document).ready(function () {
         });
     });
 
-    $('#tablaInventario').on('click', '.btn-status-inv', function () {
-        const id = $(this).data('id');
-        fetch(`/productos/api/${id}`).then(res => res.json()).then(res => {
-            if (res.success) {
-                const p = res.data;
-                const nuevoEstado = p.estado === 1 ? 2 : 1;
-                const pData = { ...p, estado: nuevoEstado };
-                const formData = new FormData();
-                formData.append('producto', new Blob([JSON.stringify(pData)], { type: 'application/json' }));
-
-                fetch('/productos/api/guardar', {
-                    method: 'POST',
-                    headers: getCsrfHeaders(),
-                    body: formData
-                }).then(res => res.json()).then(res => {
-                    if (res.success) {
-                        Swal.fire('Estado actualizado', res.message, 'success');
-                        tablaInventario.ajax.reload();
-                    }
-                });
-            }
-        });
-    });
+    $('#btnExportHistorialPdf').on('click', exportarHistorialPDF);
+    $('#btnExportHistorialExcel').on('click', exportarHistorialExcel);
 });
+
+let historialActual = { productoId: null, nombreProducto: null, filas: [], totalVendido: 0, contador: 0 };
 
 function actualizarStock(id, cantidad, operacion, tabla) {
     fetch(`/inventario/api/actualizar-stock/${id}`, {
@@ -211,6 +189,8 @@ function obtenerValorMapa(obj, ...claves) {
 function abrirHistorialVentas(productoId, nombreProducto) {
     $('#txtNombreProductoHeader').text(`${nombreProducto} (${productoId})`);
     const tbody = $('#listaHistorialVentas');
+
+    historialActual = { productoId, nombreProducto, filas: [], totalVendido: 0, contador: 0 };
 
     tbody.html('<tr><td colspan="10" class="py-4 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Buscando historial de ventas...</td></tr>');
     $('#lblTotalVendidoGlobal').text('S/. 0.00');
@@ -246,6 +226,19 @@ function abrirHistorialVentas(productoId, nombreProducto) {
                     hour: '2-digit', minute: '2-digit', hour12: true
                 }) : '—';
 
+                historialActual.filas.push({
+                    idVenta: idVenta ?? '—',
+                    numDoc,
+                    fecha: fechaFormateada,
+                    cliente,
+                    vendedor,
+                    formaPago,
+                    cantidad,
+                    precioUnitario,
+                    subtotal,
+                    estado
+                });
+
                 let badgeEstado = '<span class="badge bg-success status-badge text-uppercase">COMPLETADA</span>';
                 let filaEstilo = '';
                 if (estado === 'ANULADA') {
@@ -271,14 +264,142 @@ function abrirHistorialVentas(productoId, nombreProducto) {
                 `);
             });
 
+            historialActual.totalVendido = totalAcumulado;
+            historialActual.contador = ventasContador;
             $('#lblContadorVentas').text(`${ventasContador} venta(s) encontrada(s)`);
             $('#lblTotalVendidoGlobal').text(`S/. ${totalAcumulado.toFixed(2)}`);
         } else {
             tbody.html('<tr><td colspan="10" class="text-muted py-4">Este producto no registra transacciones de venta aún.</td></tr>');
         }
 
-        $('#historialVentasModal').modal('show');
+        const modalEl = document.getElementById('historialVentasModal');
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }).fail(function () {
         Swal.fire('Error', 'No se pudo obtener el historial transaccional del producto.', 'error');
     });
+}
+
+function cargarJsPdf() {
+    if (window.jspdf && window.jspdf.jsPDF) {
+        return Promise.resolve(window.jspdf.jsPDF);
+    }
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        script.onload = () => resolve(window.jspdf.jsPDF);
+        script.onerror = () => reject(new Error('No se pudo cargar jsPDF'));
+        document.head.appendChild(script);
+    });
+}
+
+function exportarHistorialPDF() {
+    if (!historialActual.filas.length) {
+        Swal.fire('Sin datos', 'No hay ventas para exportar.', 'info');
+        return;
+    }
+
+    cargarJsPdf().then((jsPDF) => {
+        const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
+        const margen = 14;
+        let y = 18;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text('PERNOS VEGA — Historial de Ventas', margen, y);
+        y += 7;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.text(`Producto: ${historialActual.nombreProducto} (ID ${historialActual.productoId})`, margen, y);
+        y += 5;
+        doc.text(`${historialActual.contador} venta(s) — Total vendido: S/. ${historialActual.totalVendido.toFixed(2)}`, margen, y);
+        y += 8;
+
+        const cols = ['ID', 'N° Doc', 'Fecha', 'Cliente', 'Vendedor', 'F.Pago', 'Cant.', 'P.Unit.', 'Subtotal', 'Estado'];
+        const widths = [14, 38, 32, 40, 28, 22, 14, 20, 22, 22];
+        let x = margen;
+
+        doc.setFillColor(30, 58, 95);
+        doc.rect(margen, y, 269, 7, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'bold');
+        cols.forEach((col, i) => {
+            doc.text(col, x + 1, y + 5);
+            x += widths[i];
+        });
+        y += 7;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(51, 65, 85);
+        historialActual.filas.forEach((fila, idx) => {
+            if (y > 190) {
+                doc.addPage();
+                y = 18;
+            }
+            if (idx % 2 === 1) {
+                doc.setFillColor(248, 250, 252);
+                doc.rect(margen, y, 269, 6, 'F');
+            }
+            x = margen;
+            const valores = [
+                `#${fila.idVenta}`,
+                String(fila.numDoc).substring(0, 22),
+                String(fila.fecha).substring(0, 18),
+                String(fila.cliente).substring(0, 22),
+                String(fila.vendedor).substring(0, 16),
+                String(fila.formaPago).substring(0, 12),
+                String(fila.cantidad),
+                `S/. ${fila.precioUnitario.toFixed(2)}`,
+                `S/. ${fila.subtotal.toFixed(2)}`,
+                String(fila.estado)
+            ];
+            valores.forEach((val, i) => {
+                doc.text(val, x + 1, y + 4.5);
+                x += widths[i];
+            });
+            y += 6;
+        });
+
+        const nombreArchivo = `Historial_Ventas_${historialActual.productoId}.pdf`;
+        doc.save(nombreArchivo);
+    }).catch(() => Swal.fire('Error', 'No se pudo generar el PDF.', 'error'));
+}
+
+function exportarHistorialExcel() {
+    if (!historialActual.filas.length) {
+        Swal.fire('Sin datos', 'No hay ventas para exportar.', 'info');
+        return;
+    }
+
+    const encabezados = ['ID Venta', 'N° Doc', 'Fecha', 'Cliente', 'Vendedor', 'Forma Pago', 'Cantidad', 'Precio Unit.', 'Subtotal', 'Estado'];
+    const filas = historialActual.filas.map(f => [
+        f.idVenta,
+        f.numDoc,
+        f.fecha,
+        f.cliente,
+        f.vendedor,
+        f.formaPago,
+        f.cantidad,
+        f.precioUnitario.toFixed(2),
+        f.subtotal.toFixed(2),
+        f.estado
+    ]);
+
+    const escapar = (val) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+    const csv = [
+        encabezados.map(escapar).join(','),
+        ...filas.map(row => row.map(escapar).join(',')),
+        '',
+        escapar('Total vendido'), escapar(`S/. ${historialActual.totalVendido.toFixed(2)}`)
+    ].join('\r\n');
+
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Historial_Ventas_${historialActual.productoId}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 }

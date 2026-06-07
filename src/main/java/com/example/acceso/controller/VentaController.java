@@ -1,5 +1,7 @@
 package com.example.acceso.controller;
 
+import com.example.acceso.dto.CanjearNotaVentaRequest;
+import com.example.acceso.model.TipoComprobanteVenta;
 import com.example.acceso.model.Usuario;
 import com.example.acceso.model.Venta;
 import com.example.acceso.service.ProductoService;
@@ -30,32 +32,79 @@ public class VentaController {
     }
 
     @GetMapping("/listar")
-    public String listar(Model model) {
-        model.addAttribute("productos", productoService.listarActivos());
-        return "ventas";
+    public String redirectNotas() {
+        return "redirect:/ventas/notas/listar";
     }
 
+    @GetMapping("/notas/listar")
+    public String listarNotas(Model model) {
+        model.addAttribute("productos", productoService.listarActivos());
+        model.addAttribute("tipoVista", "notas");
+        return "ventas/notas";
+    }
+
+    @GetMapping("/boletas/listar")
+    public String listarBoletas(Model model) {
+        model.addAttribute("tipoVista", "boletas");
+        return "ventas/boletas";
+    }
+
+    @GetMapping("/facturas/listar")
+    public String listarFacturas(Model model) {
+        model.addAttribute("tipoVista", "facturas");
+        return "ventas/facturas";
+    }
+
+    @GetMapping("/api/notas/listar")
+    @ResponseBody
+    public ResponseEntity<?> listarNotasApi() {
+        return okList(ventaService.listarPorTipo(TipoComprobanteVenta.NOTA));
+    }
+
+    @GetMapping("/api/boletas/listar")
+    @ResponseBody
+    public ResponseEntity<?> listarBoletasApi() {
+        return okList(ventaService.listarPorTipo(TipoComprobanteVenta.BOLETA));
+    }
+
+    @GetMapping("/api/facturas/listar")
+    @ResponseBody
+    public ResponseEntity<?> listarFacturasApi() {
+        return okList(ventaService.listarPorTipo(TipoComprobanteVenta.FACTURA));
+    }
+
+    /** Compatibilidad con frontend anterior */
     @GetMapping("/api/listar")
     @ResponseBody
     public ResponseEntity<?> listarApi() {
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("data", ventaService.listarTodas());
-        return ResponseEntity.ok(response);
+        return okList(ventaService.listarTodas());
+    }
+
+    @PostMapping("/api/notas/guardar")
+    @ResponseBody
+    public ResponseEntity<?> guardarNota(@RequestBody Venta venta) {
+        return guardarInterno(venta, true);
     }
 
     @PostMapping("/api/guardar")
     @ResponseBody
     public ResponseEntity<?> guardar(@RequestBody Venta venta) {
-        try {
-            // Asignar el usuario autenticado
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            String username = auth.getName();
-            Usuario usuario = usuarioService.findByUsuario(username).orElse(null);
-            venta.setUsuario(usuario);
+        return guardarInterno(venta, true);
+    }
 
-            Venta guardada = ventaService.registrarVenta(venta);
-            return ResponseEntity.ok(Map.of("success", true, "data", guardada, "message", "Venta procesada con éxito"));
+    @PostMapping("/api/notas-venta/{id}/canjear")
+    @ResponseBody
+    public ResponseEntity<?> canjearNota(@PathVariable Long id, @RequestBody CanjearNotaVentaRequest request) {
+        try {
+            Usuario usuario = obtenerUsuarioAutenticado();
+            Venta comprobante = ventaService.canjearNotaVenta(id, request, usuario);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "data", comprobante,
+                    "message", "Nota canjeada correctamente a " + comprobante.getTipoComprobante()
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
@@ -64,7 +113,7 @@ public class VentaController {
     @GetMapping("/api/{id}")
     @ResponseBody
     public ResponseEntity<?> obtener(@PathVariable Long id) {
-        return ventaService.obtenerPorId(id)
+        return ventaService.obtenerDetalleParaApi(id)
                 .map(v -> ResponseEntity.ok(Map.of("success", true, "data", v)))
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -74,9 +123,44 @@ public class VentaController {
     public ResponseEntity<?> cancelar(@PathVariable Long id) {
         try {
             ventaService.cancelarVenta(id);
-            return ResponseEntity.ok(Map.of("success", true, "message", "Venta cancelada y stock devuelto"));
+            return ResponseEntity.ok(Map.of("success", true, "message", "Comprobante anulado y stock devuelto si aplica"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("success", false, "message", e.getMessage()));
         }
+    }
+
+    @PostMapping("/api/notas/{id}/editar")
+    @ResponseBody
+    public ResponseEntity<?> editarNota(@PathVariable Long id, @RequestBody Venta venta) {
+        try {
+            Venta editada = ventaService.editarNotaVenta(id, venta);
+            return ResponseEntity.ok(Map.of("success", true, "data", editada, "message", "Nota de venta actualizada correctamente"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    private ResponseEntity<?> guardarInterno(Venta venta, boolean esNota) {
+        try {
+            venta.setUsuario(obtenerUsuarioAutenticado());
+            Venta guardada = esNota ? ventaService.registrarNotaVenta(venta) : ventaService.registrarVenta(venta);
+            return ResponseEntity.ok(Map.of("success", true, "data", guardada, "message", "Nota de venta registrada"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    private Usuario obtenerUsuarioAutenticado() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return usuarioService.findByUsuario(auth.getName()).orElse(null);
+    }
+
+    private ResponseEntity<?> okList(java.util.List<Venta> data) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("data", data);
+        return ResponseEntity.ok(response);
     }
 }
