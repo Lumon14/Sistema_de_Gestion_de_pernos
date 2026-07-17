@@ -404,6 +404,7 @@ $(document).ready(function() {
      */
     function clearForm() {
         $('#formUsuario')[0].reset();
+        $('#id').val(''); // Explicitly clear the hidden id field to prevent editing a previous selection
         $('#formUsuario .form-control').removeClass('is-invalid');
         $('.invalid-feedback').text('');
         isEditing = false;

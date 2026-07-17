@@ -27,7 +27,7 @@ public class ClienteService {
     }
 
     public List<Cliente> listarTodos() {
-        return clienteRepository.findAll();
+        return clienteRepository.findAllByEstadoNot(2);
     }
 
     public List<Cliente> listarActivos() {
@@ -61,6 +61,18 @@ public class ClienteService {
                 || (dniRuc.length() != 8 && dniRuc.length() != 11)) {
             throw new IllegalArgumentException(MSG_DNI_RUC_INVALIDO);
         }
+
+        Optional<Cliente> existente = clienteRepository.findByDniRuc(dniRuc);
+        if (cliente.getId() != null) {
+            if (existente.isPresent() && !existente.get().getId().equals(cliente.getId())) {
+                throw new IllegalArgumentException("El número de documento (DNI/RUC) ya se encuentra registrado");
+            }
+        } else {
+            if (existente.isPresent()) {
+                throw new IllegalArgumentException("El número de documento (DNI/RUC) ya se encuentra registrado");
+            }
+        }
+
         cliente.setDniRuc(dniRuc);
 
         if (cliente.getNombre() == null || cliente.getNombre().trim().isEmpty()) {
@@ -168,10 +180,22 @@ public class ClienteService {
         return false;
     }
 
+    @Transactional
     public void eliminar(Long id) {
         clienteRepository.findById(id).ifPresent(c -> {
-            c.setEstado(0); // Borrado lógico
+            c.setEstado(2); // Borrado lógico
             clienteRepository.save(c);
+        });
+    }
+
+    @Transactional
+    public Optional<Cliente> cambiarEstado(Long id) {
+        return clienteRepository.findById(id).map(c -> {
+            if (c.getEstado() == 2) {
+                return c;
+            }
+            c.setEstado(c.getEstado() == 1 ? 0 : 1);
+            return clienteRepository.save(c);
         });
     }
 }

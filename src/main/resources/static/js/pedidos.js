@@ -229,7 +229,7 @@ $(document).ready(function () {
     function confirmarAprobacion(id) {
         Swal.fire({
             title: '¿Aprobar pedido y registrar venta?',
-            text: "Esta acción generará la boleta/factura correspondiente y descontará los productos del stock.",
+            text: "Esta acción generará la nota de venta correspondiente y descontará los productos del stock.",
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Sí, aprobar',
@@ -244,6 +244,7 @@ $(document).ready(function () {
                 })
                 .then(res => res.json())
                 .then(data => {
+                    showLoading(false);
                     if (data.success) {
                         Swal.fire('¡Éxito!', data.message, 'success');
                         dataTable.ajax.reload();
@@ -252,8 +253,10 @@ $(document).ready(function () {
                         Swal.fire('Error', data.message, 'error');
                     }
                 })
-                .catch(() => Swal.fire('Error', 'Error de conexión con el servidor', 'error'))
-                .finally(() => showLoading(false));
+                .catch(() => {
+                    showLoading(false);
+                    Swal.fire('Error', 'Error de conexión con el servidor', 'error');
+                });
             }
         });
     }
@@ -279,6 +282,7 @@ $(document).ready(function () {
                 })
                 .then(res => res.json())
                 .then(data => {
+                    showLoading(false);
                     if (data.success) {
                         Swal.fire('Cancelado', data.message, 'success');
                         dataTable.ajax.reload();
@@ -287,8 +291,10 @@ $(document).ready(function () {
                         Swal.fire('Error', data.message, 'error');
                     }
                 })
-                .catch(() => Swal.fire('Error', 'Error de conexión con el servidor', 'error'))
-                .finally(() => showLoading(false));
+                .catch(() => {
+                    showLoading(false);
+                    Swal.fire('Error', 'Error de conexión con el servidor', 'error');
+                });
             }
         });
     }
@@ -466,6 +472,7 @@ $(document).ready(function () {
         })
         .then(res => res.json())
         .then(data => {
+            showLoading(false);
             if (data.success) {
                 editarPedidoModal.hide();
                 Swal.fire('Éxito', data.message, 'success');
@@ -474,8 +481,10 @@ $(document).ready(function () {
                 Swal.fire('Error', data.message, 'error');
             }
         })
-        .catch(() => Swal.fire('Error', 'Error de conexión', 'error'))
-        .finally(() => showLoading(false));
+        .catch(() => {
+            showLoading(false);
+            Swal.fire('Error', 'Error de conexión', 'error');
+        });
     });
 
     function showLoading(show) {

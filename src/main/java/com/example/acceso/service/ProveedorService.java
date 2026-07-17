@@ -20,7 +20,7 @@ public class ProveedorService {
     }
 
     public List<Proveedor> listarTodos() {
-        return proveedorRepository.findAll();
+        return proveedorRepository.findAllByEstadoNot(2);
     }
 
     public List<Proveedor> listarActivos() {
@@ -55,8 +55,19 @@ public class ProveedorService {
     @Transactional
     public void eliminar(Long id) {
         proveedorRepository.findById(id).ifPresent(p -> {
-            p.setEstado(0); // Borrado lógico
+            p.setEstado(2); // 2: Borrado lógico
             proveedorRepository.save(p);
+        });
+    }
+
+    @Transactional
+    public Optional<Proveedor> cambiarEstado(Long id) {
+        return proveedorRepository.findById(id).map(p -> {
+            if (p.getEstado() == 2) {
+                return p;
+            }
+            p.setEstado(p.getEstado() == 1 ? 0 : 1);
+            return proveedorRepository.save(p);
         });
     }
 
@@ -70,6 +81,16 @@ public class ProveedorService {
             throw new IllegalArgumentException("ingrese un dni o ruc valido");
         }
         proveedor.setDocumento(documento);
+
+        if (proveedor.getId() != null) {
+            if (proveedorRepository.existsByDocumentoAndIdNot(documento, proveedor.getId())) {
+                throw new IllegalArgumentException("El número de documento ya se encuentra registrado");
+            }
+        } else {
+            if (proveedorRepository.existsByDocumento(documento)) {
+                throw new IllegalArgumentException("El número de documento ya se encuentra registrado");
+            }
+        }
 
         if (proveedor.getNombre() == null || proveedor.getNombre().trim().isEmpty()) {
             throw new IllegalArgumentException("El nombre es obligatorio");

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Caja - Pernos Vega</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <!-- CSRF Token -->
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+</head>
+<body>
+
+<div class="d-flex">
+    <!-- Sidebar -->
+    <div th:replace="~{sidebar :: sidebar(activeUri='/caja/listar')}"></div>
+
+    <!-- Main content -->
+    <div id="main-content" class="main-content w-100">
+
+        <!-- Topbar -->
+        <header class="topbar">
+            <div class="d-flex align-items-center gap-3">
+                <button id="open-sidebar" class="btn btn-sm btn-light d-md-none p-1 px-2">
+                    <i class="bi bi-list fs-5"></i>
+                </button>
+                <h1 class="topbar-title">Control de Caja</h1>
+            </div>
+            <div class="d-flex gap-2">
+                <a th:href="@{/reportes/cajas/exportar/pdf}" class="btn btn-danger btn-sm">
+                    <i class="bi bi-file-pdf-fill"></i> Exportar PDF
+                </a>
+                <a th:href="@{/reportes/cajas/exportar/excel}" class="btn btn-success btn-sm">
+                    <i class="bi bi-file-earmark-excel-fill"></i> Exportar Excel
+                </a>
+            </div>
+        </header>
+
+        <!-- Contenido -->
+        <main class="p-4 fade-in-up">
+
+            <!-- Estado de Caja Activa -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 fw-600 text-primary">Caja Activa (Sesión del Día)</h5>
+                            <span th:if="${cajaActiva != null}" class="badge bg-success p-2">ABIERTA</span>
+                            <span th:if="${cajaActiva == null}" class="badge bg-secondary p-2">CERRADA</span>
+                        </div>
+                        <div class="card-body">
+                            <!-- Si la caja está CERRADA, mostrar formulario de apertura -->
+                            <div th:if="${cajaActiva == null}" class="text-center py-4">
+                                <i class="bi bi-wallet2 text-muted" style="font-size: 3rem;"></i>
+                                <h5 class="mt-3">No hay ninguna caja abierta en este momento</h5>
+                                <p class="text-muted">Para comenzar a registrar ventas, debe realizar la apertura de la caja.</p>
+                                <button type="button" class="btn btn-primary px-4" data-bs-toggle="modal" data-bs-target="#abrirCajaModal">
+                                    <i class="bi bi-unlock-fill me-1"></i> Abrir Caja (Iniciar Turno)
+                                </button>
+                            </div>
+
+                            <!-- Si la caja está ABIERTA, mostrar la información de la sesión -->
+                            <div th:if="${cajaActiva != null}" class="row g-3">
+                                <div class="col-md-3">
+                                    <div class="p-3 border rounded bg-light">
+                                        <small class="text-muted d-block">Monto de Apertura (Inicio)</small>
+                                        <span class="fs-4 fw-bold text-dark" th:text="${'S/ ' + #numbers.formatDecimal(cajaActiva.montoApertura, 1, 2)}">S/ 0.00</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="p-3 border rounded bg-light">
+                                        <small class="text-muted d-block">Ventas en Efectivo Acumuladas</small>
+                                        <span class="fs-4 fw-bold text-success" th:text="${'S/ ' + #numbers.formatDecimal(cajaService.calcularTotalEfectivoAcumulado(cajaActiva) - cajaActiva.montoApertura, 1, 2)}">S/ 0.00</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="p-3 border rounded bg-light">
+                                        <small class="text-muted d-block">Ventas en Línea (Online/Tarjetas)</small>
+                                        <span class="fs-4 fw-bold text-info" th:text="${'S/ ' + #numbers.formatDecimal(cajaService.calcularTotalOnlineAcumulado(cajaActiva), 1, 2)}">S/ 0.00</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="p-3 border rounded bg-light">
+                                        <small class="text-muted d-block">Monto Estimado en Efectivo en Caja</small>
+                                        <span class="fs-4 fw-bold text-primary" th:text="${'S/ ' + #numbers.formatDecimal(cajaService.calcularTotalEfectivoAcumulado(cajaActiva), 1, 2)}">S/ 0.00</span>
+                                    </div>
+                                </div>
+
+                                <div class="col-12 border-top pt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div>
+                                        <small class="text-muted">Abierto por: <strong th:text="${cajaActiva.usuarioApertura.nombre}">Nombre</strong></small>
+                                        <br>
+                                        <small class="text-muted">Fecha y Hora de Apertura: <strong th:text="${#temporals.format(cajaActiva.fechaApertura, 'dd/MM/yyyy HH:mm')}">Fecha</strong></small>
+                                    </div>
+                                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#cerrarCajaModal">
+                                        <i class="bi bi-lock-fill me-1"></i> Cerrar Caja (Finalizar Turno)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Historial de Cajas -->
+            <div class="table-wrapper">
+                <div class="p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <span class="fw-600 text-secondary" style="font-size:0.82rem;">Historial de Aperturas y Cierres</span>
+                </div>
+                <table id="tablaHistorialCaja" class="table table-hover responsive" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Apertura</th>
+                            <th>Cierre</th>
+                            <th>Monto Apertura (Inicio)</th>
+                            <th>Monto Cierre (Queda)</th>
+                            <th>Total Efectivo</th>
+                            <th>Total Online</th>
+                            <th>Usuario Apertura</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="sesion : ${historial}">
+                            <td th:text="${sesion.id}">1</td>
+                            <td th:text="${#temporals.format(sesion.fechaApertura, 'dd/MM/yyyy HH:mm')}">01/01/2026 08:00</td>
+                            <td th:text="${sesion.fechaCierre != null ? #temporals.format(sesion.fechaCierre, 'dd/MM/yyyy HH:mm') : 'Abierta'}">01/01/2026 18:00</td>
+                            <td th:text="${'S/ ' + #numbers.formatDecimal(sesion.montoApertura, 1, 2)}">S/ 100.00</td>
+                            <td th:text="${sesion.montoCierre != null ? 'S/ ' + #numbers.formatDecimal(sesion.montoCierre, 1, 2) : '-'}">S/ 500.00</td>
+                            <td th:text="${'S/ ' + #numbers.formatDecimal(cajaService.calcularTotalEfectivoAcumulado(sesion), 1, 2)}">S/ 500.00</td>
+                            <td th:text="${'S/ ' + #numbers.formatDecimal(cajaService.calcularTotalOnlineAcumulado(sesion), 1, 2)}">S/ 120.00</td>
+                            <td th:text="${sesion.usuarioApertura.nombre}">Admin</td>
+                            <td>
+                                <span th:if="${sesion.estado == 'ABIERTA'}" class="badge bg-success">ABIERTA</span>
+                                <span th:if="${sesion.estado == 'CERRADA'}" class="badge bg-secondary">CERRADA</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Modal Abrir Caja -->
+<div class="modal fade" id="abrirCajaModal" tabindex="-1" aria-labelledby="abrirModalTitle" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="abrirModalTitle"><i class="bi bi-unlock me-2"></i>Apertura de Caja</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAbrirCaja">
+                    <div class="mb-3">
+                        <label for="montoApertura" class="form-label">Monto de Apertura (Saldo Inicial en Caja)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">S/</span>
+                            <input type="number" id="montoApertura" name="montoApertura" class="form-control" placeholder="100.00" min="0" step="0.01" required>
+                        </div>
+                        <div class="form-text">Monto con el que empieza la caja para dar cambio el día de hoy.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnConfirmarAbrir" class="btn btn-primary">Abrir Caja</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Cerrar Caja -->
+<div class="modal fade" id="cerrarCajaModal" tabindex="-1" aria-labelledby="cerrarModalTitle" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cerrarModalTitle"><i class="bi bi-lock me-2"></i>Cierre de Caja</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formCerrarCaja">
+                    <div class="mb-3">
+                        <label for="montoCierre" class="form-label">Monto de Cierre (Saldo Físico Real en Caja)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">S/</span>
+                            <input type="number" id="montoCierre" name="montoCierre" class="form-control" placeholder="0.00" min="0" step="0.01" required>
+                        </div>
+                        <div class="form-text">Monto real físico en billetes/monedas que queda en caja.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnConfirmarCerrar" class="btn btn-danger">Cerrar Caja</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script th:src="@{/js/main.js}"></script>
+
+<script th:inline="none">
+    $(document).ready(function() {
+        $('#tablaHistorialCaja').DataTable({
+            responsive: true,
+            order: [[0, 'desc']],
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+            }
+        });
+
+        // Configuración de CSRF para solicitudes AJAX
+        const csrfToken = $("meta[name='_csrf']").attr("content");
+        const csrfHeader = $("meta[name='_csrf_header']").attr("content");
+
+        $.ajaxSetup({
+            beforeSend: function(xhr) {
+                if (csrfHeader && csrfToken) {
+                    xhr.setRequestHeader(csrfHeader, csrfToken);
+                }
+            }
+        });
+
+        $('#btnConfirmarAbrir').click(function() {
+            const monto = $('#montoApertura').val();
+            if (!monto || monto <= 0) {
+                Swal.fire('Error', 'Ingrese un monto de apertura válido', 'error');
+                return;
+            }
+
+            $.ajax({
+                url: '/caja/api/abrir?montoApertura=' + monto,
+                type: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire('Éxito', response.message, 'success').then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire('Error', response.message, 'error');
+                    }
+                },
+                error: function(xhr) {
+                    Swal.fire('Error', 'No se pudo abrir la caja', 'error');
+                }
+            });
+        });
+
+        $('#btnConfirmarCerrar').click(function() {
+            const monto = $('#montoCierre').val();
+            if (!monto || monto <= 0) {
+                Swal.fire('Error', 'Ingrese un monto de cierre válido', 'error');
+                return;
+            }
+
+            $.ajax({
+                url: '/caja/api/cerrar?montoCierre=' + monto,
+                type: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire('Éxito', response.message, 'success').then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire('Error', response.message, 'error');
+                    }
+                },
+                error: function(xhr) {
+                    Swal.fire('Error', 'No se pudo cerrar la caja', 'error');
+                }
+            });
+        });
+    });
+</script>
+</body>
+</html>

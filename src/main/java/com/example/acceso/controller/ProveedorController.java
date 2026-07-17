@@ -8,6 +8,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 @Controller
 @RequestMapping("/proveedores")
@@ -42,12 +44,37 @@ public class ProveedorController {
     @ResponseBody
     public ResponseEntity<?> guardar(@RequestBody Proveedor proveedor) {
         try {
+            boolean esNuevo = (proveedor.getId() == null);
             if (proveedor.getEstado() == null) proveedor.setEstado(1);
             Proveedor guardado = proveedorService.guardar(proveedor);
-            return ResponseEntity.ok(guardado);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", guardado);
+            response.put("message", esNuevo ? "Proveedor creado correctamente" : "Proveedor actualizado correctamente");
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         }
+    }
+
+    @PostMapping("/api/cambiar-estado/{id}")
+    @ResponseBody
+    public ResponseEntity<?> cambiarEstado(@PathVariable Long id) {
+        Map<String, Object> response = new HashMap<>();
+        return proveedorService.cambiarEstado(id)
+                .map(p -> {
+                    response.put("success", true);
+                    response.put("message", p.getEstado() == 1 ? "Proveedor activado correctamente" : "Proveedor inactivado correctamente");
+                    return ResponseEntity.ok(response);
+                })
+                .orElseGet(() -> {
+                    response.put("success", false);
+                    response.put("message", "Proveedor no encontrado");
+                    return ResponseEntity.status(404).body(response);
+                });
     }
 
     @DeleteMapping("/api/eliminar/{id}")
@@ -55,9 +82,15 @@ public class ProveedorController {
     public ResponseEntity<?> eliminar(@PathVariable Long id) {
         try {
             proveedorService.eliminar(id);
-            return ResponseEntity.ok().build();
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Proveedor eliminado correctamente");
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         }
     }
 }

@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface ClienteRepository extends JpaRepository<Cliente, Long> {
     Optional<Cliente> findByDniRuc(String dniRuc);
     java.util.List<Cliente> findByEstado(Integer estado);
+    java.util.List<Cliente> findAllByEstadoNot(Integer estado);
 }

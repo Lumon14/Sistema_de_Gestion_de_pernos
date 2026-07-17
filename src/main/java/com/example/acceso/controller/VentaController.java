@@ -1,6 +1,5 @@
 package com.example.acceso.controller;
 
-import com.example.acceso.dto.CanjearNotaVentaRequest;
 import com.example.acceso.model.TipoComprobanteVenta;
 import com.example.acceso.model.Usuario;
 import com.example.acceso.model.Venta;
@@ -43,34 +42,10 @@ public class VentaController {
         return "ventas/notas";
     }
 
-    @GetMapping("/boletas/listar")
-    public String listarBoletas(Model model) {
-        model.addAttribute("tipoVista", "boletas");
-        return "ventas/boletas";
-    }
-
-    @GetMapping("/facturas/listar")
-    public String listarFacturas(Model model) {
-        model.addAttribute("tipoVista", "facturas");
-        return "ventas/facturas";
-    }
-
     @GetMapping("/api/notas/listar")
     @ResponseBody
     public ResponseEntity<?> listarNotasApi() {
         return okList(ventaService.listarPorTipo(TipoComprobanteVenta.NOTA));
-    }
-
-    @GetMapping("/api/boletas/listar")
-    @ResponseBody
-    public ResponseEntity<?> listarBoletasApi() {
-        return okList(ventaService.listarPorTipo(TipoComprobanteVenta.BOLETA));
-    }
-
-    @GetMapping("/api/facturas/listar")
-    @ResponseBody
-    public ResponseEntity<?> listarFacturasApi() {
-        return okList(ventaService.listarPorTipo(TipoComprobanteVenta.FACTURA));
     }
 
     /** Compatibilidad con frontend anterior */
@@ -90,24 +65,6 @@ public class VentaController {
     @ResponseBody
     public ResponseEntity<?> guardar(@RequestBody Venta venta) {
         return guardarInterno(venta, true);
-    }
-
-    @PostMapping("/api/notas-venta/{id}/canjear")
-    @ResponseBody
-    public ResponseEntity<?> canjearNota(@PathVariable Long id, @RequestBody CanjearNotaVentaRequest request) {
-        try {
-            Usuario usuario = obtenerUsuarioAutenticado();
-            Venta comprobante = ventaService.canjearNotaVenta(id, request, usuario);
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "data", comprobante,
-                    "message", "Nota canjeada correctamente a " + comprobante.getTipoComprobante()
-            ));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
-        }
     }
 
     @GetMapping("/api/{id}")

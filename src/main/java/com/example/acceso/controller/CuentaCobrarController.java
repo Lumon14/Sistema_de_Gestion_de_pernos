@@ -58,7 +58,14 @@ public class CuentaCobrarController {
     @ResponseBody
     public ResponseEntity<?> registrarPago(@PathVariable Long id, @RequestBody RegistrarPagoRequest request) {
         try {
-            var cuenta = cuentaCobrarService.registrarPago(id, request.getMonto());
+            var cuenta = cuentaCobrarService.registrarPago(
+                id, 
+                request.getMonto(),
+                request.getMontoEfectivo(),
+                request.getMontoYape(),
+                request.getMontoTransferencia(),
+                request.getMontoTarjeta()
+            );
             return ResponseEntity.ok(Map.of("success", true, "data", cuenta, "message", "Pago registrado"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));

@@ -14,11 +14,14 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
 
     List<Producto> findByEstado(Integer estado);
 
+    List<Producto> findAllByEstadoNot(Integer estado);
+
     @Query(value = "SELECT p.id, p.nombre, p.precio_venta, p.stock, p.estado, p.imagen, p.stock_minimo, " +
             "COALESCE(SUM(dv.cantidad), 0) as unidades_vendidas, " +
             "COALESCE(SUM(dv.subtotal), 0.0) as total_ventas " +
             "FROM public.productos p " +
             "LEFT JOIN public.detalles_ventas dv ON p.id = dv.id_producto " +
+            "WHERE p.estado <> 2 " +
             "GROUP BY p.id, p.nombre, p.precio_venta, p.stock, p.estado, p.imagen, p.stock_minimo " +
             "ORDER BY p.id DESC", nativeQuery = true)
     List<Map<String, Object>> listarProductosConTotalesDeVenta();

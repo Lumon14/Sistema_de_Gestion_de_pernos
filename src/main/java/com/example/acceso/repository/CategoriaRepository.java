@@ -9,4 +9,8 @@ import java.util.List;
 @Repository
 public interface CategoriaRepository extends JpaRepository<Categoria, Long> {
     List<Categoria> findByEstado(Integer estado);
+
+    // Busca todas las categorías que no tienen el estado especificado (para exclusión de eliminadas con estado = 2)
+    List<Categoria> findAllByEstadoNot(Integer estado);
 }
+

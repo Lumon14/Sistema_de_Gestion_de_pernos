@@ -70,7 +70,7 @@ public class CuentaCobrarService {
     }
 
     @Transactional
-    public CuentaCobrar registrarPago(Long id, Double monto) {
+    public CuentaCobrar registrarPago(Long id, Double monto, Double montoEfectivo, Double montoYape, Double montoTransferencia, Double montoTarjeta) {
         if (monto == null || monto <= 0) {
             throw new IllegalArgumentException("Ingrese un monto válido mayor a cero");
         }
@@ -89,7 +89,43 @@ public class CuentaCobrarService {
 
         cuenta.setSaldoPendiente(saldo);
         cuenta.setEstado(saldo == 0 ? "PAGADO" : "PARCIAL");
+
+        // Update the associated Venta's payment details
+        Venta venta = cuenta.getVenta();
+        if (venta != null) {
+            double ef = montoEfectivo != null ? montoEfectivo : 0.0;
+            double yp = montoYape != null ? montoYape : 0.0;
+            double tr = montoTransferencia != null ? montoTransferencia : 0.0;
+            double tj = montoTarjeta != null ? montoTarjeta : 0.0;
+
+            venta.setMontoEfectivo((venta.getMontoEfectivo() != null ? venta.getMontoEfectivo() : 0.0) + ef);
+            venta.setMontoYape((venta.getMontoYape() != null ? venta.getMontoYape() : 0.0) + yp);
+            venta.setMontoTransferencia((venta.getMontoTransferencia() != null ? venta.getMontoTransferencia() : 0.0) + tr);
+            venta.setMontoTarjeta((venta.getMontoTarjeta() != null ? venta.getMontoTarjeta() : 0.0) + tj);
+
+            // Update payment method based on active amounts
+            java.util.List<String> activeMethods = new java.util.ArrayList<>();
+            if (venta.getMontoEfectivo() > 0) activeMethods.add("EFECTIVO");
+            if (venta.getMontoYape() > 0) activeMethods.add("YAPE");
+            if (venta.getMontoTransferencia() > 0) activeMethods.add("TRANSFERENCIA");
+            if (venta.getMontoTarjeta() > 0) activeMethods.add("TARJETA");
+
+            if (activeMethods.size() > 1) {
+                venta.setMetodoPago("MIXTO");
+            } else if (activeMethods.size() == 1) {
+                venta.setMetodoPago(activeMethods.get(0));
+            } else {
+                venta.setMetodoPago("EFECTIVO");
+            }
+            ventaRepository.save(venta);
+        }
+
         return cuentaCobrarRepository.save(cuenta);
+    }
+
+    @Transactional
+    public CuentaCobrar registrarPago(Long id, Double monto) {
+        return registrarPago(id, monto, monto, 0.0, 0.0, 0.0);
     }
 
     @Transactional

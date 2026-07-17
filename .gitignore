@@ -1,52 +1,47 @@
-# .gitignore for Gestión de Pernos project
-# Ignore Maven target directory
+# Maven target directory
 target/
+build/
+out/
 
 # Maven wrapper jar
 .mvn/wrapper/maven-wrapper.jar
 
-# compiled class files
+# Compiled class files
 *.class
 
 # Log files
 *.log
+*.log.*
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+.sw?
 
 # IDE specific files
-# IntelliJ IDEA
 .idea/
 *.iml
-
-# Eclipse
+*.iws
+*.ipr
 .project
 .classpath
 .settings/
-
-# NetBeans
+.nb-gradle/
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
-.nb-gradle/
-
-
-# VS Code
 .vscode/
 
 # OS generated files
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Build directories
-build/
-
-# Exclude any temporary files
-*.tmp
-
-# Image files
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.svg
-
-/rc/main/resources/application.properties
+# Application upload files
+/uploads/
+/uploads/**
+/src/main/resources/static/images/products/
+/src/main/resources/static/images/products/**

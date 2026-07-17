@@ -41,18 +41,23 @@ $(document).ready(function() {
                     orderable: false,
                     searchable: false,
                     className: 'text-center',
-                    render: (data, type, row) => `
-                        <div class="d-flex gap-1 justify-content-center">
-                            <button class="btn-action btn-edit action-edit" data-id="${row.id}" title="Editar">
-                                <i class="bi bi-pencil-fill"></i>
-                            </button>
-                            ${row.estado === 1 ? `
-                                <button class="btn-action btn-delete action-delete" data-id="${row.id}" title="Desactivar">
+                    render: (data, type, row) => {
+                        const statusIcon = row.estado === 1 ? 'bi-slash-circle-fill' : 'bi-check-circle-fill';
+                        const statusTitle = row.estado === 1 ? 'Desactivar' : 'Activar';
+                        return `
+                            <div class="d-flex gap-1 justify-content-center">
+                                <button class="btn-action btn-edit action-edit" data-id="${row.id}" title="Editar">
+                                    <i class="bi bi-pencil-fill"></i>
+                                </button>
+                                <button class="btn-action btn-status action-status" data-id="${row.id}" title="${statusTitle}">
+                                    <i class="bi ${statusIcon}"></i>
+                                </button>
+                                <button class="btn-action btn-delete action-delete" data-id="${row.id}" title="Eliminar">
                                     <i class="bi bi-trash3-fill"></i>
                                 </button>
-                            ` : ''}
-                        </div>
-                    `
+                            </div>
+                        `;
+                    }
                 }
             ],
             dom: 'rtip',
@@ -236,6 +241,10 @@ $(document).ready(function() {
             editarCliente($(this).data('id'));
         });
 
+        $('#tablaClientes tbody').on('click', '.action-status', function() {
+            cambiarEstadoCliente($(this).data('id'));
+        });
+
         $('#tablaClientes tbody').on('click', '.action-delete', function() {
             eliminarCliente($(this).data('id'));
         });
@@ -254,6 +263,7 @@ $(document).ready(function() {
         fetch(`/clientes/api/consultar-externo/${documento}`)
             .then(res => res.json())
             .then(data => {
+                showLoading(false);
                 $('#telefono').val('');
                 $('#email').val('');
                 $('#direccion').val('');
@@ -269,8 +279,10 @@ $(document).ready(function() {
                     Swal.fire('Información', data.message || 'No se encontraron resultados', 'info');
                 }
             })
-            .catch(() => Swal.fire('Error', 'Error al conectar con el servicio de consulta', 'error'))
-            .finally(() => showLoading(false));
+            .catch(() => {
+                showLoading(false);
+                Swal.fire('Error', 'Error al conectar con el servicio de consulta', 'error');
+            });
     }
 
     function guardarCliente() {
@@ -298,6 +310,7 @@ $(document).ready(function() {
         })
         .then(res => res.json())
         .then(data => {
+            showLoading(false);
             if (data.success) {
                 clienteModal.hide();
                 Swal.fire('¡Éxito!', data.message, 'success');
@@ -306,13 +319,19 @@ $(document).ready(function() {
                 mostrarErrorServidor(data.message);
             }
         })
-        .catch(() => Swal.fire('Error', 'Error de conexión', 'error'))
-        .finally(() => showLoading(false));
+        .catch(() => {
+            showLoading(false);
+            Swal.fire('Error', 'Error de conexión', 'error');
+        });
     }
 
     function mostrarErrorServidor(message) {
         if (!message) {
             Swal.fire('Error', 'No se pudo guardar el cliente', 'error');
+            return;
+        }
+        if (message.includes('ya se encuentra registrado') || message.includes('ya existe') || message.includes('duplicado')) {
+            showFieldError('dniRuc', message);
             return;
         }
         if (message.includes('dni') || message.includes('DNI') || message.includes('RUC')) {
@@ -357,26 +376,58 @@ $(document).ready(function() {
             .finally(() => showLoading(false));
     }
 
+    function cambiarEstadoCliente(id) {
+        showLoading(true);
+        fetch(`/clientes/api/cambiar-estado/${id}`, {
+            method: 'POST',
+            headers: getCsrfHeaders()
+        })
+        .then(res => res.json())
+        .then(data => {
+            showLoading(false);
+            if (data.success) {
+                Swal.fire('¡Éxito!', data.message, 'success');
+                dataTable.ajax.reload();
+            } else {
+                Swal.fire('Error', data.message || 'No se pudo cambiar el estado', 'error');
+            }
+        })
+        .catch(() => {
+            showLoading(false);
+            Swal.fire('Error', 'Error de conexión', 'error');
+        });
+    }
+
     function eliminarCliente(id) {
         Swal.fire({
-            title: '¿Desactivar cliente?',
-            text: "El cliente ya no aparecerá en la búsqueda de ventas.",
+            title: '¿Estás seguro?',
+            text: "¡No podrás revertir esta acción! Se eliminará el cliente del sistema.",
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#d33',
-            confirmButtonText: 'Sí, desactivar'
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
         }).then((result) => {
             if (result.isConfirmed) {
+                showLoading(true);
                 fetch(`/clientes/api/eliminar/${id}`, {
                     method: 'DELETE',
                     headers: getCsrfHeaders()
                 })
                 .then(res => res.json())
                 .then(data => {
+                    showLoading(false);
                     if (data.success) {
-                        Swal.fire('Desactivado', data.message, 'success');
+                        Swal.fire('¡Eliminado!', data.message || 'El cliente ha sido eliminado.', 'success');
                         dataTable.ajax.reload();
+                    } else {
+                        Swal.fire('Error', data.message || 'No se pudo eliminar el cliente', 'error');
                     }
+                })
+                .catch(() => {
+                    showLoading(false);
+                    Swal.fire('Error', 'Error de conexión', 'error');
                 });
             }
         });

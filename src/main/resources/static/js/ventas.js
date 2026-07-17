@@ -12,7 +12,7 @@ $(document).ready(function() {
         apiListar: '/ventas/api/listar',
         apiGuardar: '/ventas/api/guardar',
         permitirCrear: true,
-        permitirCanje: true
+        permitirCanje: false
     };
 
     // Variables globales
@@ -21,12 +21,11 @@ $(document).ready(function() {
     let ventaModal;
     let verVentaModal;
     let emailModal;
-    let canjeModal;
     let selectedClienteId = null;
     let selectedClienteNombre = null;
     let clienteGeneralId = null;
     let currentVentaForEmail = null;
-    let canjeNotaTotal = 0;
+    let pagosAgregados = [];
 
     initializeDataTable();
     if (document.getElementById('ventaModal')) {
@@ -37,9 +36,6 @@ $(document).ready(function() {
     }
     if (document.getElementById('emailModal')) {
         emailModal = new bootstrap.Modal(document.getElementById('emailModal'));
-    }
-    if (document.getElementById('canjeModal')) {
-        canjeModal = new bootstrap.Modal(document.getElementById('canjeModal'));
     }
 
     if (!CONFIG.permitirCrear) {
@@ -131,12 +127,7 @@ $(document).ready(function() {
                                 <i class="bi bi-pencil-fill"></i>
                             </button>`;
                         }
-                        if (CONFIG.permitirCanje && row.estadoDocumento === 'PENDIENTE' && row.estado === 1) {
-                            html += `<button class="btn-action btn-status action-canje" data-id="${row.id}" data-total="${row.total}" title="Procesar Pago">
-                                <i class="bi bi-cash-coin"></i>
-                            </button>`;
-                        }
-                        if (row.estado === 1 && row.estadoDocumento !== 'CANJEADA') {
+                        if (row.estado === 1) {
                             html += `<button class="btn-action btn-delete action-cancel" data-id="${row.id}" title="Anular">
                                 <i class="bi bi-x-circle-fill"></i>
                             </button>`;
@@ -215,13 +206,18 @@ $(document).ready(function() {
             $('#btnClienteGeneral').on('click', seleccionarClienteGeneral);
         }
 
-        if ($('#selectMetodoPago').length) {
-            $('#selectMetodoPago').on('change', function() {
-                const esEfectivo = $(this).val() === 'efectivo';
-                $('#boxEfectivo').toggleClass('d-none', !esEfectivo);
-                actualizarEstadoCobro();
+        if ($('#btnAgregarPagoLista').length) {
+            $('#btnAgregarPagoLista').on('click', agregarPagoALista);
+            $('#inputMontoPagoLista').on('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    agregarPagoALista();
+                }
             });
-
+            $('#tbodyPagosListado').on('click', '.btn-remove-pago', function() {
+                const idx = $(this).data('index');
+                eliminarPagoDeLista(idx);
+            });
             $('#inputEfectivoRecibido').on('input', calcularVuelto);
         }
 
@@ -278,33 +274,10 @@ $(document).ready(function() {
             confirmarCancelacion(id);
         });
 
-        $('#tablaVentas tbody').on('click', '.action-canje', function() {
-            abrirModalCanje($(this).data('id'), parseFloat($(this).data('total')) || 0);
-        });
-
         $('#tablaVentas tbody').on('click', '.action-edit', function() {
             const id = $(this).data('id');
             abrirEditarNotaVenta(id);
         });
-
-        if ($('#canjeModal').length) {
-            $('input[name="tipoCanje"]').on('change', actualizarFormularioCanje);
-            $('#canjeDniRuc').on('input', function() {
-                const max = $('input[name="tipoCanje"]:checked').val() === 'FACTURA' ? 11 : 8;
-                this.value = this.value.replace(/\D/g, '').slice(0, max);
-            });
-            $('#btnCanjeConsultar').on('click', consultarClienteCanje);
-            $('#btnConfirmarCanje').on('click', confirmarCanje);
-            $('#canjePagarCuotas').on('change', function() {
-                if (this.checked) {
-                    $('#canjeCuotasContainer').removeClass('d-none');
-                    generarListaCuotas();
-                } else {
-                    $('#canjeCuotasContainer').addClass('d-none');
-                }
-            });
-            $('#canjeNumeroCuotas').on('input change', generarListaCuotas);
-        }
 
         $('#btnCompartirWhatsApp').on('click', compartirPorWhatsApp);
 
@@ -680,26 +653,127 @@ $(document).ready(function() {
         $('#igvVenta').text('0.00');
         $('#descuentoVenta').text('0.00');
         $('#totalVenta').text(totalRedondeado.toFixed(2));
+        $('#resumenTotalVenta').text(`S/ ${totalRedondeado.toFixed(2)}`);
+
+        // Si solo hay un pago en la lista, lo actualizamos al total automáticamente
+        if (pagosAgregados.length === 1) {
+            pagosAgregados[0].monto = totalRedondeado;
+        }
+
+        actualizarDistribucionPagos();
+    }
+
+    function agregarPagoALista() {
+        const metodo = $('#inputMetodoPagoLista').val();
+        const monto = parseFloat($('#inputMontoPagoLista').val()) || 0;
+
+        if (monto <= 0) {
+            Swal.fire('Atención', 'Ingrese un monto mayor a cero', 'warning');
+            return;
+        }
+
+        const montoRedondeado = Math.round(monto * 100) / 100;
+
+        // Si ya existe el método en la lista, le sumamos el monto
+        const existeIndex = pagosAgregados.findIndex(p => p.metodo === metodo);
+        if (existeIndex !== -1) {
+            pagosAgregados[existeIndex].monto = Math.round((pagosAgregados[existeIndex].monto + montoRedondeado) * 100) / 100;
+        } else {
+            pagosAgregados.push({ metodo: metodo, monto: montoRedondeado });
+        }
+
+        actualizarDistribucionPagos();
+    }
+
+    function eliminarPagoDeLista(index) {
+        pagosAgregados.splice(index, 1);
+        actualizarDistribucionPagos();
+    }
+
+    function actualizarDistribucionPagos() {
+        const total = parseFloat($('#totalVenta').text()) || 0;
+        const $tbody = $('#tbodyPagosListado');
+        $tbody.empty();
+
+        let sum = 0;
+        let tieneEfectivo = false;
+        let montoEfectivo = 0;
+
+        pagosAgregados.forEach((pago, index) => {
+            sum += pago.monto;
+            if (pago.metodo === 'EFECTIVO') {
+                tieneEfectivo = true;
+                montoEfectivo += pago.monto;
+            }
+
+            const row = `
+                <tr>
+                    <td class="py-1 fw-semibold">${pago.metodo}</td>
+                    <td class="text-end py-1 fw-bold">S/ ${pago.monto.toFixed(2)}</td>
+                    <td class="text-center py-1">
+                        <button type="button" class="btn btn-link text-danger p-0 btn-remove-pago" data-index="${index}" style="line-height:1; border:none; background:none;">
+                            <i class="bi bi-trash fs-6"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+            $tbody.append(row);
+        });
+
+        sum = Math.round(sum * 100) / 100;
+        $('#resumenTotalAgregado').text(`S/ ${sum.toFixed(2)}`);
+
+        const diff = Math.round((total - sum) * 100) / 100;
+        const $restanteLabel = $('#resumenRestante');
+        $restanteLabel.text(`S/ ${diff.toFixed(2)}`);
+
+        if (Math.abs(diff) < 0.01) {
+            $restanteLabel.removeClass('text-danger text-warning').addClass('text-success');
+        } else if (diff > 0) {
+            $restanteLabel.removeClass('text-success text-warning').addClass('text-danger');
+        } else {
+            $restanteLabel.removeClass('text-success text-danger').addClass('text-warning');
+        }
+
+        // Sugerir el restante en el input de monto para agilizar la entrada
+        if (diff > 0) {
+            $('#inputMontoPagoLista').val(diff.toFixed(2));
+        } else {
+            $('#inputMontoPagoLista').val('');
+        }
+
+        const $alerta = $('#alertaMontoMixto');
+        if (Math.abs(diff) < 0.01) {
+            $alerta.html('<span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> Distribución correcta</span>');
+        } else if (diff > 0) {
+            $alerta.html(`<span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> Falta distribuir S/ ${diff.toFixed(2)}</span>`);
+        } else {
+            $alerta.html(`<span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> Exceso de S/ ${Math.abs(diff).toFixed(2)}</span>`);
+        }
+
+        // Mostrar boxEfectivo si hay efectivo en la lista de pagos
+        $('#boxEfectivo').toggleClass('d-none', !tieneEfectivo);
+
         calcularVuelto();
     }
 
     function calcularVuelto() {
-        const total = parseFloat($('#totalVenta').text()) || 0;
-        const metodo = $('#selectMetodoPago').val();
         const $vuelto = $('#vueltoInfo');
+        
+        // Buscamos si hay un pago de tipo EFECTIVO
+        const pagoEf = pagosAgregados.find(p => p.metodo === 'EFECTIVO');
+        const targetCashAmount = pagoEf ? pagoEf.monto : 0;
 
-        if (metodo !== 'efectivo') {
+        if (targetCashAmount <= 0) {
             $vuelto.removeClass('insuficiente ok').text('');
             actualizarEstadoCobro();
             return;
         }
 
         const recibido = parseFloat($('#inputEfectivoRecibido').val()) || 0;
-        const vuelto = Math.round((recibido - total) * 100) / 100;
+        const vuelto = Math.round((recibido - targetCashAmount) * 100) / 100;
 
-        if (total <= 0) {
-            $vuelto.removeClass('ok').addClass('insuficiente').text('Vuelto: —');
-        } else if (recibido < total) {
+        if (recibido < targetCashAmount) {
             $vuelto.removeClass('ok').addClass('insuficiente').text('Vuelto: Monto insuficiente');
         } else {
             $vuelto.removeClass('insuficiente').addClass('ok').text(`VUELTO: S/ ${vuelto.toFixed(2)}`);
@@ -712,13 +786,27 @@ $(document).ready(function() {
         const total = parseFloat($('#totalVenta').text()) || 0;
         const tieneCliente = !!selectedClienteId;
         const tieneItems = itemsVenta.length > 0;
-        const metodo = $('#selectMetodoPago').val();
-        let pagoValido = true;
+        
+        // Sumar todos los pagos agregados
+        let sum = 0;
+        let ef = 0;
+        pagosAgregados.forEach(p => {
+            sum += p.monto;
+            if (p.metodo === 'EFECTIVO') {
+                ef += p.monto;
+            }
+        });
+        
+        sum = Math.round(sum * 100) / 100;
+        const distribucionExacta = Math.abs(total - sum) < 0.01;
 
-        if (metodo === 'efectivo' && total > 0) {
+        let vueltoValido = true;
+        if (ef > 0) {
             const recibido = parseFloat($('#inputEfectivoRecibido').val()) || 0;
-            pagoValido = recibido >= total;
+            vueltoValido = recibido >= ef;
         }
+
+        const pagoValido = distribucionExacta && vueltoValido && pagosAgregados.length > 0;
 
         $('#btnProcesarVenta').prop('disabled', !(tieneCliente && tieneItems && total > 0 && pagoValido));
     }
@@ -738,19 +826,51 @@ $(document).ready(function() {
         }
 
         const total = parseFloat($('#totalVenta').text());
-        const metodo = $('#selectMetodoPago').val();
-        if (metodo === 'efectivo') {
+        
+        let ef = 0;
+        let yp = 0;
+        let tr = 0;
+        let tj = 0;
+
+        pagosAgregados.forEach(p => {
+            if (p.metodo === 'EFECTIVO') ef += p.monto;
+            if (p.metodo === 'YAPE') yp += p.monto;
+            if (p.metodo === 'TRANSFERENCIA') tr += p.monto;
+            if (p.metodo === 'TARJETA') tj += p.monto;
+        });
+
+        const sum = Math.round((ef + yp + tr + tj) * 100) / 100;
+        if (Math.abs(total - sum) >= 0.01) {
+            Swal.fire('Distribución incorrecta', 'La suma de los métodos de pago no coincide con el total de la venta', 'warning');
+            return;
+        }
+        if (ef > 0) {
             const recibido = parseFloat($('#inputEfectivoRecibido').val()) || 0;
-            if (recibido < total) {
-                Swal.fire('Pago insuficiente', 'El efectivo recibido no cubre el total', 'warning');
+            if (recibido < ef) {
+                Swal.fire('Pago insuficiente', 'El efectivo recibido no cubre la parte en efectivo', 'warning');
                 return;
             }
         }
 
         const editId = $('#editVentaId').val();
+        
+        // Determinar método de pago principal o MIXTO
+        let metodoPagoFinal = 'EFECTIVO';
+        const metodosDistintos = pagosAgregados.filter(p => p.monto > 0);
+        if (metodosDistintos.length > 1) {
+            metodoPagoFinal = 'MIXTO';
+        } else if (metodosDistintos.length === 1) {
+            metodoPagoFinal = metodosDistintos[0].metodo;
+        }
+
         const ventaData = {
             cliente: { id: selectedClienteId },
             total: total,
+            metodoPago: metodoPagoFinal,
+            montoEfectivo: ef,
+            montoTransferencia: tr,
+            montoYape: yp,
+            montoTarjeta: tj,
             detalles: itemsVenta.map(item => ({
                 producto: { id: item.productoId },
                 cantidad: item.cantidad,
@@ -762,7 +882,18 @@ $(document).ready(function() {
         const confirmTitle = editId ? '¿Guardar cambios?' : '¿Confirmar cobro?';
         const confirmBtnText = editId ? 'Sí, guardar' : 'Sí, cobrar';
 
-        const metodoLabel = $('#selectMetodoPago option:selected').text().trim();
+        let metodoLabel = '';
+        if (metodoPagoFinal === 'MIXTO') {
+            const details = [];
+            if (ef > 0) details.push(`Efectivo: S/ ${ef.toFixed(2)}`);
+            if (yp > 0) details.push(`Yape: S/ ${yp.toFixed(2)}`);
+            if (tr > 0) details.push(`Transf.: S/ ${tr.toFixed(2)}`);
+            if (tj > 0) details.push(`Tarjeta: S/ ${tj.toFixed(2)}`);
+            metodoLabel = `Pago Mixto (${details.join(', ')})`;
+        } else {
+            metodoLabel = metodoPagoFinal;
+        }
+
         Swal.fire({
             title: confirmTitle,
             html: `
@@ -824,11 +955,25 @@ $(document).ready(function() {
                         ? venta.cliente.dniRuc
                         : (venta.cliente && venta.cliente.dniRuc ? venta.cliente.dniRuc : '-');
 
+                    // Detalle del método de pago
+                    let metodoPagoInfo = '';
+                    if (venta.metodoPago === 'MIXTO') {
+                        const parts = [];
+                        if (venta.montoEfectivo > 0) parts.push(`Efectivo: S/ ${venta.montoEfectivo.toFixed(2)}`);
+                        if (venta.montoYape > 0) parts.push(`Yape: S/ ${venta.montoYape.toFixed(2)}`);
+                        if (venta.montoTransferencia > 0) parts.push(`Transf.: S/ ${venta.montoTransferencia.toFixed(2)}`);
+                        if (venta.montoTarjeta > 0) parts.push(`Tarjeta: S/ ${venta.montoTarjeta.toFixed(2)}`);
+                        metodoPagoInfo = `<p class="mb-1"><strong>Método de Pago:</strong> <span class="text-primary fw-semibold">MIXTO (${parts.join(', ')})</span></p>`;
+                    } else {
+                        metodoPagoInfo = `<p class="mb-1"><strong>Método de Pago:</strong> <span class="text-dark fw-semibold">${venta.metodoPago || 'EFECTIVO'}</span></p>`;
+                    }
+
                     let html = `
                         <div class="mb-3">
                             <p class="mb-1"><strong>Cliente:</strong> ${venta.cliente ? venta.cliente.nombre : 'General'}</p>
                             <p class="mb-1"><strong>DNI/RUC:</strong> ${clienteDni}</p>
                             ${comprobanteInfo}
+                            ${metodoPagoInfo}
                             <p class="mb-1"><strong>Fecha:</strong> ${new Date(venta.fecha).toLocaleString()}</p>
                             <p class="mb-1"><strong>Vendedor:</strong> ${venta.usuario ? venta.usuario.nombre : '-'}</p>
                         </div>
@@ -1208,6 +1353,7 @@ $(document).ready(function() {
         itemsVenta = [];
         selectedClienteId = null;
         selectedClienteNombre = null;
+        pagosAgregados = [{ metodo: 'EFECTIVO', monto: 0 }];
         $('#editVentaId').val('');
         $('#modalTitle').html('<i class="bi bi-receipt-cutoff"></i> Nueva Nota de Venta');
         $('#btnProcesarVenta').html('<i class="bi bi-check2-circle me-1"></i> Registrar Venta');
@@ -1217,7 +1363,9 @@ $(document).ready(function() {
         $('#inputCantidad').val(1);
         $('#inputPrecio').val('');
         $('#inputComprobante').val('NOTA DE VENTA');
-        $('#selectMetodoPago').val('efectivo');
+        
+        $('#inputMetodoPagoLista').val('EFECTIVO');
+        $('#inputMontoPagoLista').val('');
         $('#boxEfectivo').removeClass('d-none');
         $('#inputEfectivoRecibido').val('0');
         $('#vueltoInfo').removeClass('ok').addClass('insuficiente').text('Vuelto: Monto insuficiente');
@@ -1235,184 +1383,6 @@ $(document).ready(function() {
         } else {
             Swal.close();
         }
-    }
-
-    function abrirModalCanje(notaId, total) {
-        canjeNotaTotal = total;
-        $('#canjeNotaId').val(notaId);
-        $('#canjeBoleta').prop('checked', true);
-        $('#canjeDniRuc, #canjeNombre, #canjeTelefono, #canjeEmail, #canjeDireccion').val('');
-        $('#canjeNombre').removeData('cliente-id');
-        $('.invalid-feedback[id^="canje"]').text('');
-        $('#canjeDniRuc, #canjeNombre').removeClass('is-invalid');
-        
-        $('#canjePagarCuotas').prop('checked', false);
-        $('#canjeCuotasContainer').addClass('d-none');
-        $('#canjeListaCuotas').empty();
-        $('#canjeNumeroCuotas').val(2);
-
-        actualizarFormularioCanje();
-        canjeModal.show();
-
-        fetch(`/ventas/api/${notaId}`)
-            .then(res => res.json())
-            .then(data => {
-                if (!data.success || !data.data || !data.data.cliente) return;
-                const c = data.data.cliente;
-                const dni = c.dniRuc && c.dniRuc !== '00000000' ? c.dniRuc : '';
-                $('#canjeDniRuc').val(dni);
-                $('#canjeNombre').val(c.nombre || '');
-                $('#canjeTelefono').val(c.telefono || '');
-                $('#canjeEmail').val(c.email || '');
-                $('#canjeDireccion').val(c.direccion || '');
-                if (c.id) {
-                    $('#canjeNombre').data('cliente-id', c.id);
-                }
-            })
-            .catch(() => {});
-    }
-
-    function actualizarFormularioCanje() {
-        const esFactura = $('input[name="tipoCanje"]:checked').val() === 'FACTURA';
-        $('#canjeLabelDocumento').text(esFactura ? 'RUC' : 'DNI');
-        $('#canjeDniRuc').attr('maxlength', esFactura ? 11 : 8);
-        const total = canjeNotaTotal;
-        if (esFactura) {
-            const subtotal = Math.round((total / 1.18) * 100) / 100;
-            const igv = Math.round((total - subtotal) * 100) / 100;
-            $('#canjeSubtotal').text(`S/. ${subtotal.toFixed(2)}`);
-            $('#canjeIgv').text(`S/. ${igv.toFixed(2)}`);
-            $('#canjeSubtotalRow').show();
-            $('#canjeIgvRow').show();
-        } else {
-            $('#canjeSubtotalRow').hide();
-            $('#canjeIgvRow').hide();
-        }
-        $('#canjeTotal').text(`S/. ${total.toFixed(2)}`);
-    }
-
-    function consultarClienteCanje() {
-        const doc = $('#canjeDniRuc').val().trim();
-        const esFactura = $('input[name="tipoCanje"]:checked').val() === 'FACTURA';
-        if (!doc) return;
-        if (esFactura && doc.length !== 11) {
-            $('#canjeDniRuc').addClass('is-invalid');
-            $('#canjeDniRuc-error').text('ingrese un dni o ruc valido');
-            return;
-        }
-        if (!esFactura && doc.length !== 8) {
-            $('#canjeDniRuc').addClass('is-invalid');
-            $('#canjeDniRuc-error').text('ingrese un dni o ruc valido');
-            return;
-        }
-
-        fetch(`/clientes/api/buscar/${doc}`)
-            .then(res => res.json())
-            .then(data => {
-                $('#canjeTelefono, #canjeEmail, #canjeDireccion').val('');
-                if (data.success && data.data) {
-                    const c = data.data;
-                    $('#canjeNombre').val(c.nombre || '');
-                    $('#canjeTelefono').val(c.telefono || '');
-                    $('#canjeEmail').val(c.email || '');
-                    $('#canjeDireccion').val(c.direccion || '');
-                    $('#canjeNombre').data('cliente-id', c.id);
-                } else {
-                    fetch(`/clientes/api/consultar-externo/${doc}`)
-                        .then(r => r.json())
-                        .then(ext => {
-                            if (ext.success) {
-                                $('#canjeNombre').val(ext.nombre || '');
-                            } else {
-                                Swal.fire('Información', ext.message || 'No se encontró el documento', 'info');
-                            }
-                        });
-                }
-            });
-    }
-
-    function confirmarCanje() {
-        const notaId = $('#canjeNotaId').val();
-        const tipoDestino = $('input[name="tipoCanje"]:checked').val();
-        const dniRuc = $('#canjeDniRuc').val().trim();
-        const nombre = $('#canjeNombre').val().trim();
-        const clienteId = $('#canjeNombre').data('cliente-id');
-
-        if (tipoDestino === 'FACTURA' && !/^\d{11}$/.test(dniRuc)) {
-            $('#canjeDniRuc').addClass('is-invalid');
-            $('#canjeDniRuc-error').text('Para Factura ingrese un RUC válido de 11 dígitos');
-            return;
-        }
-        if (tipoDestino === 'BOLETA' && dniRuc && !/^\d{8}$/.test(dniRuc)) {
-            $('#canjeDniRuc').addClass('is-invalid');
-            $('#canjeDniRuc-error').text('ingrese un dni o ruc valido');
-            return;
-        }
-        if (!nombre) {
-            $('#canjeNombre').addClass('is-invalid');
-            $('#canjeNombre-error').text('El nombre completo es obligatorio');
-            return;
-        }
-
-        let pagarCuotas = $('#canjePagarCuotas').is(':checked');
-        let cuotas = [];
-        if (pagarCuotas) {
-            let sumCuotas = 0;
-            let validationFailed = false;
-            $('.canje-cuota-row').each(function() {
-                const monto = parseFloat($(this).find('.canje-monto-cuota').val()) || 0;
-                const fechaPago = $(this).find('.canje-fecha-cuota').val();
-                if (monto <= 0) {
-                    Swal.fire('Atención', 'El monto de todas las cuotas debe ser mayor a cero', 'warning');
-                    validationFailed = true;
-                    return false;
-                }
-                if (!fechaPago) {
-                    Swal.fire('Atención', 'Debe seleccionar una fecha de pago para todas las cuotas', 'warning');
-                    validationFailed = true;
-                    return false;
-                }
-                cuotas.push({ monto, fechaPago });
-                sumCuotas += monto;
-            });
-            if (validationFailed) return;
-            sumCuotas = Math.round(sumCuotas * 100) / 100;
-            if (Math.abs(sumCuotas - canjeNotaTotal) > 0.05) {
-                Swal.fire('Atención', `La suma de las cuotas (S/ ${sumCuotas.toFixed(2)}) no coincide con el total de la venta (S/ ${canjeNotaTotal.toFixed(2)})`, 'warning');
-                return;
-            }
-        }
-
-        const payload = {
-            tipoDestino,
-            dniRuc: dniRuc || null,
-            nombre,
-            telefono: $('#canjeTelefono').val().trim(),
-            email: $('#canjeEmail').val().trim(),
-            direccion: $('#canjeDireccion').val().trim(),
-            clienteId: clienteId || null,
-            pagarCuotas,
-            cuotas
-        };
-
-        showLoading(true);
-        fetch(`/ventas/api/notas-venta/${notaId}/canjear`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...getCsrfHeaders() },
-            body: JSON.stringify(payload)
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                canjeModal.hide();
-                Swal.fire('Éxito', data.message, 'success');
-                dataTable.ajax.reload();
-            } else {
-                Swal.fire('Error', data.message, 'error');
-            }
-        })
-        .catch(() => Swal.fire('Error', 'No se pudo procesar el canje', 'error'))
-        .finally(() => showLoading(false));
     }
 
     function abrirEditarNotaVenta(id) {
@@ -1441,51 +1411,22 @@ $(document).ready(function() {
                         precio: d.precioVenta,
                         stock: d.producto.stock + d.cantidad
                     }));
+
+                    pagosAgregados = [];
+                    if (venta.montoEfectivo > 0) pagosAgregados.push({ metodo: 'EFECTIVO', monto: venta.montoEfectivo });
+                    if (venta.montoYape > 0) pagosAgregados.push({ metodo: 'YAPE', monto: venta.montoYape });
+                    if (venta.montoTransferencia > 0) pagosAgregados.push({ metodo: 'TRANSFERENCIA', monto: venta.montoTransferencia });
+                    if (venta.montoTarjeta > 0) pagosAgregados.push({ metodo: 'TARJETA', monto: venta.montoTarjeta });
+
+                    if (pagosAgregados.length === 0) {
+                        const fallbackMetodo = venta.metodoPago || 'EFECTIVO';
+                        pagosAgregados.push({ metodo: fallbackMetodo, monto: venta.total });
+                    }
                     
                     renderizarListaDetalles();
                     ventaModal.show();
                 }
             })
             .finally(() => showLoading(false));
-    }
-
-    function generarListaCuotas() {
-        const numCuotas = parseInt($('#canjeNumeroCuotas').val(), 10) || 2;
-        const total = canjeNotaTotal;
-        const baseMonto = Math.floor((total / numCuotas) * 100) / 100;
-        let residual = Math.round((total - (baseMonto * numCuotas)) * 100) / 100;
-        
-        const $lista = $('#canjeListaCuotas');
-        $lista.empty();
-        
-        const hoy = new Date();
-        for (let i = 1; i <= numCuotas; i++) {
-            let cuotaMonto = baseMonto;
-            if (i === numCuotas) {
-                cuotaMonto = Math.round((baseMonto + residual) * 100) / 100;
-            }
-            
-            const fechaCuota = new Date(hoy);
-            fechaCuota.setDate(hoy.getDate() + (i * 30));
-            const yyyy = fechaCuota.getFullYear();
-            const mm = String(fechaCuota.getMonth() + 1).padStart(2, '0');
-            const dd = String(fechaCuota.getDate()).padStart(2, '0');
-            const fechaStr = `${yyyy}-${mm}-${dd}`;
-            
-            $lista.append(`
-                <div class="row g-2 mb-2 align-items-center canje-cuota-row">
-                    <div class="col-sm-2 small fw-bold text-muted">Cuota ${i}:</div>
-                    <div class="col-sm-5">
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text">S/</span>
-                            <input type="number" class="form-control form-control-sm canje-monto-cuota" value="${cuotaMonto.toFixed(2)}" min="0.01" step="0.01">
-                        </div>
-                    </div>
-                    <div class="col-sm-5">
-                        <input type="date" class="form-control form-control-sm canje-fecha-cuota" value="${fechaStr}">
-                    </div>
-                </div>
-            `);
-        }
     }
 });

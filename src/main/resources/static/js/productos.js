@@ -88,22 +88,26 @@ $(document).ready(function() {
             {
                 data: null,
                 className: 'text-center',
-                render: (data, type, row) => `
-                    <div class="d-flex gap-1 justify-content-center">
-                        <button class="btn-action btn-edit btn-edit-row" data-id="${row.id}" title="Editar">
-                            <i class="bi bi-pencil-fill"></i>
-                        </button>
-                        <button class="btn-action btn-view btn-view-row" data-id="${row.id}" title="Ver detalle">
-                            <i class="bi bi-box-fill"></i>
-                        </button>
-                        <button class="btn-action btn-delete btn-delete-row" data-id="${row.id}" title="Eliminar">
-                            <i class="bi bi-trash3-fill"></i>
-                        </button>
-                        <button class="btn-action btn-status btn-status-row" data-id="${row.id}" title="Cambiar estado">
-                            <i class="bi bi-slash-circle-fill"></i>
-                        </button>
-                    </div>
-                `
+                render: (data, type, row) => {
+                    const statusIcon = row.estado === 1 ? 'bi-slash-circle-fill' : 'bi-check-circle-fill';
+                    const statusTitle = row.estado === 1 ? 'Desactivar' : 'Activar';
+                    return `
+                        <div class="d-flex gap-1 justify-content-center">
+                            <button class="btn-action btn-edit btn-edit-row" data-id="${row.id}" title="Editar">
+                                <i class="bi bi-pencil-fill"></i>
+                            </button>
+                            <button class="btn-action btn-view btn-view-row" data-id="${row.id}" title="Ver detalle">
+                                <i class="bi bi-box-fill"></i>
+                            </button>
+                            <button class="btn-action btn-status btn-status-row" data-id="${row.id}" title="${statusTitle}">
+                                <i class="bi ${statusIcon}"></i>
+                            </button>
+                            <button class="btn-action btn-delete btn-delete-row" data-id="${row.id}" title="Eliminar">
+                                <i class="bi bi-trash3-fill"></i>
+                            </button>
+                        </div>
+                    `;
+                }
             }
         ],
         dom: 'rtip', // Hide default search bar to use custom one
@@ -176,8 +180,7 @@ $(document).ready(function() {
             precioVenta: parseFloat($('#precioVenta').val()),
             stock: parseInt($('#stock').val(), 10) || 0,
             stockMinimo: parseInt($('#stockMinimo').val(), 10) || 0,
-            descripcion: $('#descripcion').val(),
-            estado: 1
+            descripcion: $('#descripcion').val()
         };
 
         const formData = new FormData();
@@ -241,26 +244,28 @@ $(document).ready(function() {
     $('#tablaProductos').on('click', '.btn-delete-row', function() {
         const id = $(this).data('id');
         Swal.fire({
-            title: '¿Eliminar producto?',
-            text: "Se cambiará el estado a Inactivo",
+            title: '¿Estás seguro?',
+            text: "¡No podrás revertir esta acción! Se eliminará el producto del sistema.",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
-            confirmButtonText: 'Sí, eliminar'
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, ¡eliminar!',
+            cancelButtonText: 'Cancelar'
         }).then((result) => {
             if (result.isConfirmed) {
                 fetch(`/productos/api/eliminar/${id}`, { 
                     method: 'DELETE',
                     headers: getCsrfHeaders()
                 })
-                    .then(parseJsonResponse).then(res => {
-                        if (res.success) {
-                            Swal.fire('Eliminado', res.message, 'success');
-                            dataTable.ajax.reload();
-                        }
-                    }).catch(err => {
-                        Swal.fire('Error', err.message || 'No se pudo eliminar el producto', 'error');
-                    });
+                .then(parseJsonResponse).then(res => {
+                    if (res.success) {
+                        Swal.fire('Eliminado', res.message, 'success');
+                        dataTable.ajax.reload();
+                    }
+                }).catch(err => {
+                    Swal.fire('Error', err.message || 'No se pudo eliminar el producto', 'error');
+                });
             }
         });
     });
@@ -296,28 +301,21 @@ $(document).ready(function() {
     // Cambiar Estado (Activar/Inactivar)
     $('#tablaProductos').on('click', '.btn-status-row', function() {
         const id = $(this).data('id');
-        fetch(`/productos/api/${id}`).then(parseJsonResponse).then(res => {
+        fetch(`/productos/api/cambiar-estado/${id}`, {
+            method: 'POST',
+            headers: getCsrfHeaders()
+        })
+        .then(parseJsonResponse)
+        .then(res => {
             if (res.success) {
-                const p = res.data;
-                const nuevoEstado = p.estado === 1 ? 2 : 1; // 1: Activo, 2: Inactivo
-                const pData = { ...p, estado: nuevoEstado };
-                
-                const formData = new FormData();
-                formData.append('producto', new Blob([JSON.stringify(pData)], { type: 'application/json' }));
-
-                fetch('/productos/api/guardar', {
-                    method: 'POST',
-                    headers: getCsrfHeaders(),
-                    body: formData
-                }).then(parseJsonResponse).then(res => {
-                    if (res.success) {
-                        Swal.fire('Estado actualizado', res.message, 'success');
-                        dataTable.ajax.reload();
-                    }
-                }).catch(err => {
-                    Swal.fire('Error', err.message || 'No se pudo cambiar el estado', 'error');
-                });
+                Swal.fire('¡Éxito!', res.message, 'success');
+                dataTable.ajax.reload();
+            } else {
+                Swal.fire('Error', res.message, 'error');
             }
+        })
+        .catch(err => {
+            Swal.fire('Error', err.message || 'No se pudo cambiar el estado', 'error');
         });
     });
 });

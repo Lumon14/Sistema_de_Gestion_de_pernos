@@ -1,6 +1,5 @@
 package com.example.acceso.service;
 
-import com.example.acceso.dto.CanjearNotaVentaRequest;
 import com.example.acceso.model.*;
 import com.example.acceso.repository.ClienteRepository;
 import com.example.acceso.repository.DetalleVentaRepository;
@@ -95,115 +94,6 @@ public class VentaService {
     }
 
     @Transactional
-    public Venta canjearNotaVenta(Long notaId, CanjearNotaVentaRequest request, Usuario usuario) {
-        Venta nota = ventaRepository.findById(notaId)
-                .orElseThrow(() -> new IllegalArgumentException("Nota de venta no encontrada"));
-
-        if (!TipoComprobanteVenta.NOTA.equals(nota.getTipoComprobante())) {
-            throw new IllegalArgumentException("El comprobante no es una Nota de Venta");
-        }
-        if (!EstadoDocumentoVenta.PENDIENTE.equals(nota.getEstadoDocumento())) {
-            throw new IllegalArgumentException("Solo se pueden canjear notas en estado PENDIENTE");
-        }
-        if (nota.getEstado() != null && nota.getEstado() == 0) {
-            throw new IllegalArgumentException("La nota de venta está anulada");
-        }
-
-        List<DetalleVenta> detallesNota = detalleVentaRepository.findByVentaId(notaId);
-        if (detallesNota.isEmpty()) {
-            throw new IllegalArgumentException("La nota de venta no tiene detalle de productos");
-        }
-
-        String tipoDestino = request.getTipoDestino() != null
-                ? request.getTipoDestino().trim().toUpperCase()
-                : "";
-        if (!TipoComprobanteVenta.BOLETA.equals(tipoDestino)
-                && !TipoComprobanteVenta.FACTURA.equals(tipoDestino)) {
-            throw new IllegalArgumentException("Tipo destino inválido. Use BOLETA o FACTURA");
-        }
-
-        Cliente cliente = resolverClienteCanje(request, tipoDestino);
-
-        // Validar cuotas si aplica
-        if (Boolean.TRUE.equals(request.getPagarCuotas())) {
-            if (request.getCuotas() == null || request.getCuotas().isEmpty()) {
-                throw new IllegalArgumentException("Debe especificar las cuotas a pagar");
-            }
-            double sumCuotas = 0;
-            for (CanjearNotaVentaRequest.CuotaDTO c : request.getCuotas()) {
-                if (c.getMonto() == null || c.getMonto() <= 0) {
-                    throw new IllegalArgumentException("El monto de la cuota debe ser mayor a cero");
-                }
-                if (c.getFechaPago() == null || c.getFechaPago().isBlank()) {
-                    throw new IllegalArgumentException("Debe especificar la fecha de pago de todas las cuotas");
-                }
-                sumCuotas += c.getMonto();
-            }
-            sumCuotas = redondear(sumCuotas);
-            if (Math.abs(sumCuotas - nota.getTotal()) > 0.05) {
-                throw new IllegalArgumentException("La suma de las cuotas (S/ " + sumCuotas + ") no coincide con el total (S/ " + nota.getTotal() + ")");
-            }
-        }
-
-        Venta comprobante = new Venta();
-        comprobante.setUsuario(usuario);
-        comprobante.setCliente(cliente);
-        comprobante.setTipoComprobante(tipoDestino);
-        comprobante.setSerie(TipoComprobanteVenta.FACTURA.equals(tipoDestino) ? "F001" : "B001");
-        comprobante.setNumeroComprobante(siguienteNumero(comprobante.getSerie()));
-        comprobante.setEstado(1);
-        comprobante.setEstadoDocumento(EstadoDocumentoVenta.EMITIDA);
-        comprobante.setAfectaInventario(false);
-        comprobante.setNotaOrigen(nota);
-        comprobante.setTotal(nota.getTotal());
-
-        if (TipoComprobanteVenta.FACTURA.equals(tipoDestino)) {
-            double subtotal = redondear(nota.getTotal() / (1 + IGV_RATE));
-            double igv = redondear(nota.getTotal() - subtotal);
-            comprobante.setSubtotal(subtotal);
-            comprobante.setIgv(igv);
-        } else {
-            comprobante.setSubtotal(nota.getTotal());
-            comprobante.setIgv(0.0);
-        }
-
-        List<DetalleVenta> detallesCopia = new ArrayList<>();
-        for (DetalleVenta original : detallesNota) {
-            DetalleVenta copia = new DetalleVenta();
-            copia.setVenta(comprobante);
-            copia.setProducto(original.getProducto());
-            copia.setCantidad(original.getCantidad());
-            copia.setPrecioVenta(original.getPrecioVenta());
-            copia.setDescuento(original.getDescuento() != null ? original.getDescuento() : 0.0);
-            copia.setSubtotal(original.getSubtotal());
-            detallesCopia.add(copia);
-        }
-        comprobante.setDetalles(detallesCopia);
-
-        Venta guardada = ventaRepository.save(comprobante);
-
-        // Registrar cuotas en cuentas por cobrar si es por cuotas
-        if (Boolean.TRUE.equals(request.getPagarCuotas())) {
-            for (CanjearNotaVentaRequest.CuotaDTO c : request.getCuotas()) {
-                CuentaCobrar cc = new CuentaCobrar();
-                cc.setCliente(cliente);
-                cc.setVenta(guardada);
-                cc.setSaldoPendiente(c.getMonto());
-                cc.setEstado("PENDIENTE");
-                cc.setFechaCreacion(java.time.LocalDateTime.now());
-                cc.setFechaPago(java.time.LocalDate.parse(c.getFechaPago()));
-                cuentaCobrarRepository.save(cc);
-            }
-        }
-
-        nota.setEstadoDocumento(EstadoDocumentoVenta.CANJEADA);
-        nota.setComprobanteCanje(guardada);
-        ventaRepository.save(nota);
-
-        return guardada;
-    }
-
-    @Transactional
     public void cancelarVenta(Long id) {
         ventaRepository.findById(id).ifPresent(venta -> {
             if (venta.getEstado() == null || venta.getEstado() != 1) {
@@ -265,43 +155,9 @@ public class VentaService {
         venta.setSubtotal(calculatedTotal);
         venta.setIgv(0.0);
 
+        normalizarMontosPago(venta);
+
         return ventaRepository.save(venta);
-    }
-
-    private Cliente resolverClienteCanje(CanjearNotaVentaRequest request, String tipoDestino) {
-        if (request.getClienteId() != null) {
-            return clienteRepository.findById(request.getClienteId())
-                    .orElseThrow(() -> new IllegalArgumentException("Cliente no encontrado"));
-        }
-
-        String dniRuc = request.getDniRuc() != null ? request.getDniRuc().trim() : "";
-        if (TipoComprobanteVenta.FACTURA.equals(tipoDestino)) {
-            if (!dniRuc.matches("\\d{11}")) {
-                throw new IllegalArgumentException("Para Factura ingrese un RUC válido de 11 dígitos");
-            }
-        } else if (!dniRuc.isEmpty() && !dniRuc.matches("\\d{8}")) {
-            throw new IllegalArgumentException("Para Boleta ingrese un DNI válido de 8 dígitos o déjelo vacío");
-        }
-
-        if (!dniRuc.isEmpty()) {
-            Optional<Cliente> existente = clienteRepository.findByDniRuc(dniRuc);
-            if (existente.isPresent()) {
-                return existente.get();
-            }
-        }
-
-        if (request.getNombre() == null || request.getNombre().isBlank()) {
-            throw new IllegalArgumentException("El nombre del cliente es obligatorio");
-        }
-
-        Cliente nuevo = new Cliente();
-        nuevo.setDniRuc(dniRuc.isEmpty() ? null : dniRuc);
-        nuevo.setNombre(request.getNombre().trim());
-        nuevo.setTelefono(blankToNull(request.getTelefono()));
-        nuevo.setEmail(blankToNull(request.getEmail()));
-        nuevo.setDireccion(blankToNull(request.getDireccion()));
-        nuevo.setEstado(1);
-        return clienteRepository.save(nuevo);
     }
 
     private void devolverStock(Venta venta) {
@@ -389,9 +245,35 @@ public class VentaService {
         existente.setSubtotal(calculatedTotal);
         existente.setIgv(0.0);
 
+        existente.setMetodoPago(ventaActualizada.getMetodoPago());
+        existente.setMontoEfectivo(ventaActualizada.getMontoEfectivo());
+        existente.setMontoTransferencia(ventaActualizada.getMontoTransferencia());
+        existente.setMontoYape(ventaActualizada.getMontoYape());
+        existente.setMontoTarjeta(ventaActualizada.getMontoTarjeta());
+        normalizarMontosPago(existente);
+
         // Guardar detalles nuevos
         detalleVentaRepository.saveAll(nuevosDetalles);
 
         return ventaRepository.save(existente);
+    }
+
+    private void normalizarMontosPago(Venta venta) {
+        if (venta.getMetodoPago() == null) {
+            venta.setMetodoPago("EFECTIVO");
+        }
+        String metodo = venta.getMetodoPago().toUpperCase();
+        if (!metodo.equals("MIXTO")) {
+            double total = venta.getTotal() != null ? venta.getTotal() : 0.0;
+            venta.setMontoEfectivo(metodo.equals("EFECTIVO") ? total : 0.0);
+            venta.setMontoTransferencia(metodo.equals("TRANSFERENCIA") ? total : 0.0);
+            venta.setMontoYape(metodo.equals("YAPE") ? total : 0.0);
+            venta.setMontoTarjeta(metodo.equals("TARJETA") ? total : 0.0);
+        } else {
+            if (venta.getMontoEfectivo() == null) venta.setMontoEfectivo(0.0);
+            if (venta.getMontoTransferencia() == null) venta.setMontoTransferencia(0.0);
+            if (venta.getMontoYape() == null) venta.setMontoYape(0.0);
+            if (venta.getMontoTarjeta() == null) venta.setMontoTarjeta(0.0);
+        }
     }
 }

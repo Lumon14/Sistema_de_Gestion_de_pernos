@@ -18,7 +18,7 @@ public class Proveedor {
     @Column(nullable = false, length = 150)
     private String nombre;
 
-    @Column(length = 20, unique = true)
+    @Column(name = "ruc", length = 20, unique = true)
     private String documento;
 
     @Column(length = 255)

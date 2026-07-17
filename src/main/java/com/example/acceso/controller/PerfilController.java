@@ -62,9 +62,10 @@ public class PerfilController {
     public ResponseEntity<?> guardarPerfil(@RequestBody Perfil perfil) {
         Map<String, Object> response = new HashMap<>();
         try {
+            boolean esNuevo = (perfil.getId() == null);
             Perfil perfilGuardado = perfilService.guardarPerfil(perfil);
             response.put("success", true);
-            response.put("message", perfil.getId() != null ? "Perfil actualizado" : "Perfil creado");
+            response.put("message", esNuevo ? "Perfil creado correctamente" : "Perfil actualizado correctamente");
             response.put("perfil", perfilGuardado);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {

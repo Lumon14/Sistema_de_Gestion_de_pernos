@@ -57,16 +57,23 @@ $(document).ready(function() {
             {
                 data: null,
                 className: 'text-center',
-                render: (data, type, row) => `
-                    <div class="d-flex gap-1 justify-content-center">
-                        <button class="btn-action btn-edit" data-id="${row.id}" title="Editar">
-                            <i class="bi bi-pencil-fill"></i>
-                        </button>
-                        <button class="btn-action btn-delete" data-id="${row.id}" title="Eliminar">
-                            <i class="bi bi-trash3-fill"></i>
-                        </button>
-                    </div>
-                `
+                render: (data, type, row) => {
+                    const statusIcon = row.estado === 1 ? 'bi-slash-circle-fill' : 'bi-check-circle-fill';
+                    const statusTitle = row.estado === 1 ? 'Desactivar' : 'Activar';
+                    return `
+                        <div class="d-flex gap-1 justify-content-center">
+                            <button class="btn-action btn-edit" data-id="${row.id}" title="Editar">
+                                <i class="bi bi-pencil-fill"></i>
+                            </button>
+                            <button class="btn-action btn-status" data-id="${row.id}" title="${statusTitle}">
+                                <i class="bi ${statusIcon}"></i>
+                            </button>
+                            <button class="btn-action btn-delete" data-id="${row.id}" title="Eliminar">
+                                <i class="bi bi-trash3-fill"></i>
+                            </button>
+                        </div>
+                    `;
+                }
             }
         ],
         dom: 'rtip',
@@ -93,8 +100,7 @@ $(document).ready(function() {
         const data = {
             id: $('#id').val() || null,
             nombre: $('#nombre').val().trim(),
-            descripcion: $('#descripcion').val(),
-            estado: 1
+            descripcion: $('#descripcion').val()
         };
 
         fetch('/categorias/api/guardar', {
@@ -131,26 +137,49 @@ $(document).ready(function() {
         });
     });
 
+    $('#tablaCategorias').on('click', '.btn-status', function() {
+        const id = $(this).data('id');
+        fetch(`/categorias/api/cambiar-estado/${id}`, {
+            method: 'POST',
+            headers: getCsrfHeaders()
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) {
+                Swal.fire('¡Éxito!', res.message, 'success');
+                dataTable.ajax.reload();
+            } else {
+                Swal.fire('Error', res.message, 'error');
+            }
+        });
+    });
+
     $('#tablaCategorias').on('click', '.btn-delete', function() {
         const id = $(this).data('id');
         Swal.fire({
-            title: '¿Eliminar?',
-            text: "Esta acción desactivará la categoría",
+            title: '¿Estás seguro?',
+            text: "¡No podrás revertir esta acción! Se eliminará la categoría del sistema.",
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Sí, desactivar'
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, ¡eliminar!',
+            cancelButtonText: 'Cancelar'
         }).then((result) => {
             if (result.isConfirmed) {
                 fetch(`/categorias/api/eliminar/${id}`, { 
                     method: 'DELETE',
                     headers: getCsrfHeaders()
                 })
-                    .then(res => res.json()).then(res => {
-                        if (res.success) {
-                            Swal.fire('Eliminado', res.message, 'success');
-                            dataTable.ajax.reload();
-                        }
-                    });
+                .then(res => res.json())
+                .then(res => {
+                    if (res.success) {
+                        Swal.fire('Eliminado', res.message, 'success');
+                        dataTable.ajax.reload();
+                    } else {
+                        Swal.fire('Error', res.message, 'error');
+                    }
+                });
             }
         });
     });

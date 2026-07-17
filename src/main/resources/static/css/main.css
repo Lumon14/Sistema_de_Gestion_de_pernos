@@ -236,7 +236,7 @@ body {
 .topbar {
     background: white;
     border-bottom: 1px solid var(--border-color);
-    padding: 0 24px;
+    padding: 0 80px 0 24px;
     height: 60px;
     display: flex;
     align-items: center;
@@ -245,6 +245,19 @@ body {
     position: sticky;
     top: 0;
     z-index: 50;
+}
+
+.main-header {
+    padding: 16px 80px 16px 24px;
+}
+
+@media (min-width: 768px) {
+    .topbar {
+        padding-right: 96px;
+    }
+    .main-header {
+        padding-right: 96px;
+    }
 }
 
 .topbar-title {
@@ -616,6 +629,26 @@ body {
 /* =====================================================
    SCROLLBAR (WebKit)
    ===================================================== */
+
+/* Scrollbar global */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-page);
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 6px;
+    border: 2px solid var(--bg-page);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
 
 .sidebar::-webkit-scrollbar { width: 4px; }
 .sidebar::-webkit-scrollbar-track { background: transparent; }

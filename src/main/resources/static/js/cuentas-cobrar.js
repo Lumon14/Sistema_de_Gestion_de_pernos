@@ -114,19 +114,86 @@ $(document).ready(function() {
         });
     });
 
+    let saldoActual = 0;
+
+    function calcularDistribucion() {
+        const ef = parseFloat($('#pagoEfectivo').val()) || 0;
+        const yp = parseFloat($('#pagoYape').val()) || 0;
+        const tr = parseFloat($('#pagoTransferencia').val()) || 0;
+        const tj = parseFloat($('#pagoTarjeta').val()) || 0;
+
+        const totalDistribuido = Math.round((ef + yp + tr + tj) * 100.0) / 100.0;
+        const restante = Math.round((saldoActual - totalDistribuido) * 100.0) / 100.0;
+
+        $('#totalDistribuidoDisplay').text(`S/ ${totalDistribuido.toFixed(2)}`);
+        $('#restanteDisplay').text(`S/ ${restante.toFixed(2)}`);
+
+        const alerta = $('#alertaPagoDistribucion');
+        const btn = $('#btnConfirmarPago');
+
+        if (restante < 0) {
+            alerta.html('<div class="alert alert-danger py-1 px-2 small mb-0 fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>El monto total supera el saldo pendiente.</div>');
+            btn.prop('disabled', true);
+            $('#restanteDisplay').removeClass('text-success text-muted').addClass('text-danger');
+        } else if (totalDistribuido <= 0) {
+            alerta.html('<div class="alert alert-warning py-1 px-2 small mb-0 fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>Ingrese al menos un monto para cobrar.</div>');
+            btn.prop('disabled', true);
+            $('#restanteDisplay').removeClass('text-success text-danger').addClass('text-muted');
+        } else {
+            alerta.html('<div class="alert alert-success py-1 px-2 small mb-0 fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Distribución correcta.</div>');
+            btn.prop('disabled', false);
+            $('#restanteDisplay').removeClass('text-danger text-muted').addClass('text-success');
+        }
+    }
+
+    $('.input-distribucion-pago').on('input change', calcularDistribucion);
+
     $('#tablaCuentasCobrar').on('click', '.btn-pagar', function() {
-        $('#pagoCuentaId').val($(this).data('id'));
-        $('#pagoMonto').val(parseFloat($(this).data('saldo')).toFixed(2));
+        const id = $(this).data('id');
+        saldoActual = parseFloat($(this).data('saldo'));
+
+        $('#pagoCuentaId').val(id);
+        $('#saldoPendienteDisplay').val(saldoActual.toFixed(2));
+        
+        // Default: pay full amount in cash
+        $('#pagoEfectivo').val(saldoActual.toFixed(2));
+        $('#pagoYape').val('0.00');
+        $('#pagoTransferencia').val('0.00');
+        $('#pagoTarjeta').val('0.00');
+
+        calcularDistribucion();
         modalPago.show();
     });
 
     $('#btnConfirmarPago').on('click', () => {
         const id = $('#pagoCuentaId').val();
-        const monto = parseFloat($('#pagoMonto').val());
+        const ef = parseFloat($('#pagoEfectivo').val()) || 0;
+        const yp = parseFloat($('#pagoYape').val()) || 0;
+        const tr = parseFloat($('#pagoTransferencia').val()) || 0;
+        const tj = parseFloat($('#pagoTarjeta').val()) || 0;
+
+        const totalDistribuido = Math.round((ef + yp + tr + tj) * 100.0) / 100.0;
+
+        // Determine method name
+        let methods = [];
+        if (ef > 0) methods.push('EFECTIVO');
+        if (yp > 0) methods.push('YAPE');
+        if (tr > 0) methods.push('TRANSFERENCIA');
+        if (tj > 0) methods.push('TARJETA');
+
+        const metodoPago = methods.length > 1 ? 'MIXTO' : (methods[0] || 'EFECTIVO');
+
         fetch(`/cuentas-cobrar/api/${id}/registrar-pago`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...getCsrfHeaders() },
-            body: JSON.stringify({ monto, metodoPago: $('#pagoMetodo').val() })
+            body: JSON.stringify({
+                monto: totalDistribuido,
+                metodoPago: metodoPago,
+                montoEfectivo: ef,
+                montoYape: yp,
+                montoTransferencia: tr,
+                montoTarjeta: tj
+            })
         }).then(r => r.json()).then(data => {
             if (data.success) {
                 modalPago.hide();

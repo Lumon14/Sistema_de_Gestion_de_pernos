@@ -58,6 +58,21 @@ public class Venta {
     @Column(name = "estado_documento", length = 20)
     private String estadoDocumento;
 
+    @Column(name = "metodo_pago", length = 30, columnDefinition = "varchar(30) default 'EFECTIVO'")
+    private String metodoPago = "EFECTIVO";
+
+    @Column(name = "monto_efectivo", columnDefinition = "NUMERIC(10,2) default 0.0")
+    private Double montoEfectivo = 0.0;
+
+    @Column(name = "monto_transferencia", columnDefinition = "NUMERIC(10,2) default 0.0")
+    private Double montoTransferencia = 0.0;
+
+    @Column(name = "monto_yape", columnDefinition = "NUMERIC(10,2) default 0.0")
+    private Double montoYape = 0.0;
+
+    @Column(name = "monto_tarjeta", columnDefinition = "NUMERIC(10,2) default 0.0")
+    private Double montoTarjeta = 0.0;
+
     /** No serializar: referencia circular con notaOrigen y no se usa en listados. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "comprobante_canje_id")

@@ -31,7 +31,8 @@ public class PerfilServiceImpl implements PerfilService {
     @Override
     @Transactional(readOnly = true)
     public List<Perfil> listarTodosLosPerfiles() {
-        return perfilRepository.findAll();
+        // Excluimos perfiles con estado = 2 (eliminados lógicamente)
+        return perfilRepository.findAllByEstadoNot(2);
     }
 
     private static final String MSG_NOMBRE_INVALIDO = "no se permite caracteres especiales (), @, \", +,-. ";
@@ -66,6 +67,9 @@ public class PerfilServiceImpl implements PerfilService {
     @Transactional
     public Optional<Perfil> cambiarEstadoPerfil(Long id) {
         return perfilRepository.findById(id).map(perfil -> {
+            if (perfil.getEstado() == 2) {
+                return perfil; // No cambiar estado de un perfil eliminado
+            }
             perfil.setEstado(perfil.getEstado() == 1 ? 0 : 1);
             return perfilRepository.save(perfil);
         });
@@ -81,7 +85,7 @@ public class PerfilServiceImpl implements PerfilService {
     @Transactional
     public void eliminarPerfil(Long id) {
         perfilRepository.findById(id).ifPresent(perfil -> {
-            perfil.setEstado(0); // Borrado lógico
+            perfil.setEstado(2); // 2: Borrado lógico
             perfilRepository.save(perfil);
         });
     }

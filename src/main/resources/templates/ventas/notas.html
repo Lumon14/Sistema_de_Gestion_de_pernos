@@ -422,13 +422,62 @@
                             </div>
                             <div class="col-md-4">
                                 <div class="nv-card">
-                                    <div class="nv-card-title"><i class="bi bi-credit-card"></i> Método de Pago</div>
-                                    <select class="form-select form-select-sm" id="selectMetodoPago">
-                                        <option value="efectivo" selected>Efectivo</option>
-                                        <option value="tarjeta">Tarjeta</option>
-                                        <option value="transferencia">Transferencia</option>
-                                        <option value="yape">Yape / Plin</option>
-                                    </select>
+                                    <div class="nv-card-title mb-2"><i class="bi bi-credit-card"></i> Métodos de Pago</div>
+                                    
+                                    <!-- Formulario para agregar pago -->
+                                    <div class="row g-1 mb-2">
+                                        <div class="col-5">
+                                            <select class="form-select form-select-sm" id="inputMetodoPagoLista">
+                                                <option value="EFECTIVO" selected>Efectivo</option>
+                                                <option value="YAPE">Yape / Plin</option>
+                                                <option value="TRANSFERENCIA">Transferencia</option>
+                                                <option value="TARJETA">Tarjeta</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-5">
+                                            <input type="number" step="0.01" min="0.01" class="form-control form-control-sm" id="inputMontoPagoLista" placeholder="Monto">
+                                        </div>
+                                        <div class="col-2">
+                                            <button type="button" class="btn btn-primary btn-sm w-100" id="btnAgregarPagoLista" title="Agregar pago">
+                                                <i class="bi bi-plus-lg"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Tabla de pagos agregados -->
+                                    <div class="table-responsive border rounded mb-2" style="max-height: 110px; overflow-y: auto;">
+                                        <table class="table table-sm table-hover mb-0 align-middle" style="font-size: 0.76rem;">
+                                            <thead class="table-light sticky-top">
+                                                <tr>
+                                                    <th class="py-1">Método</th>
+                                                    <th class="text-end py-1">Monto</th>
+                                                    <th class="text-center py-1" style="width: 30px;"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="tbodyPagosListado">
+                                                <!-- Se cargará dinámicamente -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <!-- Resumen de distribución -->
+                                    <div class="border-top pt-2 small">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span class="text-muted">Total Venta:</span>
+                                            <span class="fw-bold" id="resumenTotalVenta">S/ 0.00</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span class="text-muted">Total Agregado:</span>
+                                            <span class="fw-bold text-success" id="resumenTotalAgregado">S/ 0.00</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span class="text-muted">Restante:</span>
+                                            <span class="fw-bold text-danger" id="resumenRestante">S/ 0.00</span>
+                                        </div>
+                                        <div class="text-end small mt-1" id="alertaMontoMixto">
+                                            <!-- Mensaje de alerta por JS -->
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -590,90 +639,7 @@
         </div>
     </div>
 
-    <!-- Modal Canje: Boleta / Factura -->
-    <div class="modal fade" id="canjeModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content border-0 shadow">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title"><i class="bi bi-arrow-left-right me-2"></i>Procesar Pago</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" id="canjeNotaId">
-                    <p class="text-muted small mb-3">¿Cómo desea procesar el pago de esta nota de venta?</p>
-                    <div class="btn-group w-100 mb-3" role="group">
-                        <input type="radio" class="btn-check" name="tipoCanje" id="canjeBoleta" value="BOLETA" checked>
-                        <label class="btn btn-outline-primary" for="canjeBoleta">Convertir a Boleta</label>
-                        <input type="radio" class="btn-check" name="tipoCanje" id="canjeFactura" value="FACTURA">
-                        <label class="btn btn-outline-primary" for="canjeFactura">Convertir a Factura</label>
-                    </div>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold" id="canjeLabelDocumento">DNI</label>
-                            <div class="input-group">
-                                <input type="text" class="form-control" id="canjeDniRuc" maxlength="11" inputmode="numeric">
-                                <button type="button" class="btn btn-outline-secondary" id="btnCanjeConsultar">
-                                    <i class="bi bi-search"></i>
-                                </button>
-                            </div>
-                            <div class="invalid-feedback d-block" id="canjeDniRuc-error"></div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold">Nombre Completo</label>
-                            <input type="text" class="form-control" id="canjeNombre">
-                            <div class="invalid-feedback d-block" id="canjeNombre-error"></div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold">Teléfono</label>
-                            <input type="text" class="form-control" id="canjeTelefono" maxlength="9">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold">Correo</label>
-                            <input type="email" class="form-control" id="canjeEmail">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold">Dirección</label>
-                            <input type="text" class="form-control" id="canjeDireccion">
-                        </div>
-                    </div>
-                    <div class="row g-3 mt-1">
-                        <div class="col-12">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="canjePagarCuotas">
-                                <label class="form-check-label fw-bold small text-primary" for="canjePagarCuotas">
-                                    <i class="bi bi-calendar-range me-1"></i> ¿Pagar por cuotas?
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="border rounded p-3 mt-2 bg-light d-none" id="canjeCuotasContainer">
-                        <div class="row g-2 align-items-center mb-2">
-                            <div class="col-auto">
-                                <label class="col-form-label small fw-bold">N° de Cuotas:</label>
-                            </div>
-                            <div class="col-auto">
-                                <input type="number" class="form-control form-control-sm" id="canjeNumeroCuotas" value="2" min="2" max="12" style="width: 70px;">
-                            </div>
-                        </div>
-                        <div id="canjeListaCuotas">
-                            <!-- Cuotas dinámicas -->
-                        </div>
-                    </div>
-                    <div class="border rounded p-3 mt-3 bg-light" id="canjeTotalesBox">
-                        <div class="d-flex justify-content-between" id="canjeSubtotalRow"><span>Subtotal</span><strong id="canjeSubtotal">S/. 0.00</strong></div>
-                        <div class="d-flex justify-content-between mt-1" id="canjeIgvRow"><span>IGV (18%)</span><strong id="canjeIgv">S/. 0.00</strong></div>
-                        <div class="d-flex justify-content-between mt-2 fs-5"><span>Total</span><strong id="canjeTotal">S/. 0.00</strong></div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="btnConfirmarCanje">
-                        <i class="bi bi-check2-circle me-1"></i> Confirmar Canje
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+
 
     <!-- CSRF Meta Tags -->
     <meta name="_csrf" th:content="${_csrf.token}"/>
@@ -695,7 +661,7 @@
             apiListar: '/ventas/api/notas/listar',
             apiGuardar: '/ventas/api/notas/guardar',
             permitirCrear: true,
-            permitirCanje: true
+            permitirCanje: false
         };
     </script>
     <script th:src="@{/js/main.js}"></script>

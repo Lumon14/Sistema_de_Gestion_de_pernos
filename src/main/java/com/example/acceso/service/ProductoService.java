@@ -20,7 +20,8 @@ public class ProductoService {
     }
 
     public List<Producto> listarTodos() {
-        return productoRepository.findAll();
+        // Excluimos productos con estado = 2 (eliminados lógicamente)
+        return productoRepository.findAllByEstadoNot(2);
     }
 
     public List<Producto> listarActivos() {
@@ -99,8 +100,19 @@ public class ProductoService {
     @Transactional
     public void eliminar(Long id) {
         productoRepository.findById(id).ifPresent(p -> {
-            p.setEstado(0);
+            p.setEstado(2); // 2: Borrado lógico
             productoRepository.save(p);
+        });
+    }
+
+    @Transactional
+    public Optional<Producto> cambiarEstado(Long id) {
+        return productoRepository.findById(id).map(p -> {
+            if (p.getEstado() == 2) {
+                return p; // No cambiar estado de un producto eliminado
+            }
+            p.setEstado(p.getEstado() == 1 ? 0 : 1);
+            return productoRepository.save(p);
         });
     }
 

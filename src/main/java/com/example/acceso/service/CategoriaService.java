@@ -18,7 +18,8 @@ public class CategoriaService {
     }
 
     public List<Categoria> listarTodas() {
-        return categoriaRepository.findAll();
+        // Excluimos categorías con estado = 2 (eliminadas lógicamente)
+        return categoriaRepository.findAllByEstadoNot(2);
     }
 
     public List<Categoria> listarActivas() {
@@ -53,8 +54,19 @@ public class CategoriaService {
     @Transactional
     public void eliminar(Long id) {
         categoriaRepository.findById(id).ifPresent(c -> {
-            c.setEstado(0); // Borrado lógico
+            c.setEstado(2); // 2: Borrado lógico
             categoriaRepository.save(c);
+        });
+    }
+
+    @Transactional
+    public Optional<Categoria> cambiarEstado(Long id) {
+        return categoriaRepository.findById(id).map(c -> {
+            if (c.getEstado() == 2) {
+                return c; // No cambiar estado de una categoría eliminada
+            }
+            c.setEstado(c.getEstado() == 1 ? 0 : 1);
+            return categoriaRepository.save(c);
         });
     }
 

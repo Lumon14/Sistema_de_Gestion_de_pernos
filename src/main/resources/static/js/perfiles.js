@@ -377,6 +377,7 @@ $(document).ready(function() {
 
     function clearForm() {
         $('#formPerfil')[0].reset();
+        $('#id').val(''); // Explicitly clear the hidden id field to prevent editing a previous selection
         clearFieldErrors();
     }
 

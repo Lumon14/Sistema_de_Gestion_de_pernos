@@ -84,10 +84,11 @@ public class ProductoController {
                 producto.setImagen("/images/products/" + fileName);
             }
 
+            boolean esNuevo = (producto.getId() == null);
             Producto guardado = productoService.guardar(producto);
             response.put("success", true);
             response.put("data", guardado);
-            response.put("message", "Producto guardado correctamente");
+            response.put("message", esNuevo ? "Producto creado correctamente" : "Producto actualizado correctamente");
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             response.put("success", false);
@@ -148,12 +149,29 @@ public class ProductoController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PostMapping("/api/cambiar-estado/{id}")
+    @ResponseBody
+    public ResponseEntity<?> cambiarEstado(@PathVariable Long id) {
+        Map<String, Object> response = new HashMap<>();
+        return productoService.cambiarEstado(id)
+                .map(p -> {
+                    response.put("success", true);
+                    response.put("message", p.getEstado() == 1 ? "Producto activado correctamente" : "Producto inactivado correctamente");
+                    return ResponseEntity.ok(response);
+                })
+                .orElseGet(() -> {
+                    response.put("success", false);
+                    response.put("message", "Producto no encontrado");
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+                });
+    }
+
     @DeleteMapping("/api/eliminar/{id}")
     @ResponseBody
     public ResponseEntity<?> eliminar(@PathVariable Long id) {
         try {
             productoService.eliminar(id);
-            return ResponseEntity.ok(Map.of("success", true, "message", "Producto desactivado"));
+            return ResponseEntity.ok(Map.of("success", true, "message", "Producto eliminado correctamente"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("success", false, "message", e.getMessage()));

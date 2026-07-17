@@ -24,13 +24,18 @@ $(document).ready(function() {
             },
             {
                 data: null,
-                render: function(data) {
+                render: function(row) {
+                    const statusIcon = row.estado === 1 ? 'bi-slash-circle-fill' : 'bi-check-circle-fill';
+                    const statusTitle = row.estado === 1 ? 'Desactivar' : 'Activar';
                     return `
                         <div class="d-flex gap-1 justify-content-center">
-                            <button class="btn-action btn-edit btn-edit-prov" data-id="${data.id}" title="Editar">
+                            <button class="btn-action btn-edit btn-edit-prov" data-id="${row.id}" title="Editar">
                                 <i class="bi bi-pencil-fill"></i>
                             </button>
-                            <button class="btn-action btn-delete btn-delete-prov" data-id="${data.id}" title="Eliminar">
+                            <button class="btn-action btn-status btn-status-prov" data-id="${row.id}" title="${statusTitle}">
+                                <i class="bi ${statusIcon}"></i>
+                            </button>
+                            <button class="btn-action btn-delete btn-delete-prov" data-id="${row.id}" title="Eliminar">
                                 <i class="bi bi-trash3-fill"></i>
                             </button>
                         </div>
@@ -206,6 +211,7 @@ $(document).ready(function() {
         fetch(`/clientes/api/consultar-externo/${documento}`)
             .then(res => res.json())
             .then(data => {
+                showLoading(false);
                 if (data.success) {
                     $('#nombre').val(data.nombre || '');
                     if (data.direccion) {
@@ -220,8 +226,10 @@ $(document).ready(function() {
                     Swal.fire('Información', data.message || 'No se encontraron resultados', 'info');
                 }
             })
-            .catch(() => Swal.fire('Error', 'Error al conectar con el servicio de consulta', 'error'))
-            .finally(() => showLoading(false));
+            .catch(() => {
+                showLoading(false);
+                Swal.fire('Error', 'Error al conectar con el servicio de consulta', 'error');
+            });
     });
 
     $('#formProveedor').submit(function(e) {
@@ -242,14 +250,16 @@ $(document).ready(function() {
             contentType: 'application/json',
             headers: getCsrfHeaders(),
             data: JSON.stringify(data),
-            success: function() {
+            success: function(res) {
                 $('#proveedorModal').modal('hide');
                 tabla.ajax.reload();
-                Swal.fire('¡Éxito!', 'Proveedor guardado correctamente', 'success');
+                Swal.fire('¡Éxito!', res.message || 'Proveedor guardado correctamente', 'success');
             },
             error: function(xhr) {
                 const msg = xhr.responseText || 'No se pudo guardar el proveedor';
-                if (msg.includes('dni') || msg.includes('DNI') || msg.includes('RUC') || msg.includes('documento')) {
+                if (msg.includes('ya se encuentra registrado') || msg.includes('ya existe') || msg.includes('duplicado')) {
+                    showFieldError('documento', msg);
+                } else if (msg.includes('dni') || msg.includes('DNI') || msg.includes('RUC') || msg.includes('documento')) {
                     showFieldError('documento', MSG_DNI_RUC_INVALIDO);
                 } else if (msg.includes('teléfono') || msg.includes('telefono')) {
                     showFieldError('telefono', MSG_TELEFONO_INVALIDO);
@@ -264,6 +274,23 @@ $(document).ready(function() {
 
     $('#tablaProveedores').on('click', '.btn-edit-prov', function() {
         editarProveedor($(this).data('id'));
+    });
+
+    $('#tablaProveedores').on('click', '.btn-status-prov', function() {
+        const id = $(this).data('id');
+        $.ajax({
+            url: '/proveedores/api/cambiar-estado/' + id,
+            type: 'POST',
+            headers: getCsrfHeaders(),
+            success: function(res) {
+                tabla.ajax.reload();
+                Swal.fire('¡Éxito!', res.message || 'Estado actualizado', 'success');
+            },
+            error: function(xhr) {
+                const msg = xhr.responseText || 'No se pudo cambiar el estado';
+                Swal.fire('Error', msg, 'error');
+            }
+        });
     });
 
     $('#tablaProveedores').on('click', '.btn-delete-prov', function() {
@@ -287,7 +314,7 @@ $(document).ready(function() {
     function eliminarProveedor(id) {
         Swal.fire({
             title: '¿Estás seguro?',
-            text: 'El proveedor se marcará como inactivo',
+            text: '¡No podrás revertir esta acción! Se eliminará el proveedor del sistema.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#ef4444',
@@ -300,9 +327,13 @@ $(document).ready(function() {
                     url: '/proveedores/api/eliminar/' + id,
                     type: 'DELETE',
                     headers: getCsrfHeaders(),
-                    success: function() {
+                    success: function(res) {
                         tabla.ajax.reload();
-                        Swal.fire('¡Eliminado!', 'El proveedor ha sido desactivado.', 'success');
+                        Swal.fire('¡Eliminado!', res.message || 'El proveedor ha sido eliminado.', 'success');
+                    },
+                    error: function(xhr) {
+                        const msg = xhr.responseText || 'No se pudo eliminar el proveedor';
+                        Swal.fire('Error', msg, 'error');
                     }
                 });
             }

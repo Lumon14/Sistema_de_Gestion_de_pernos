@@ -9,4 +9,10 @@ import java.util.List;
 @Repository
 public interface ProveedorRepository extends JpaRepository<Proveedor, Long> {
     List<Proveedor> findByEstado(Integer estado);
+
+    List<Proveedor> findAllByEstadoNot(Integer estado);
+
+    boolean existsByDocumento(String documento);
+
+    boolean existsByDocumentoAndIdNot(String documento, Long id);
 }

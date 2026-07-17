@@ -42,9 +42,13 @@ public class ClienteController {
     @ResponseBody
     public ResponseEntity<?> guardar(@RequestBody Cliente cliente) {
         try {
+            boolean esNuevo = (cliente.getId() == null);
             Cliente guardado = clienteService.guardar(cliente);
-            return ResponseEntity
-                    .ok(Map.of("success", true, "data", guardado, "message", "Cliente guardado correctamente"));
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "data", guardado,
+                    "message", esNuevo ? "Cliente creado correctamente" : "Cliente actualizado correctamente"
+            ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
@@ -82,12 +86,23 @@ public class ClienteController {
         return ResponseEntity.ok(consultaService.consultarDocumento(dni));
     }
 
+    @PostMapping("/api/cambiar-estado/{id}")
+    @ResponseBody
+    public ResponseEntity<?> cambiarEstado(@PathVariable Long id) {
+        return clienteService.cambiarEstado(id)
+                .map(c -> ResponseEntity.ok(Map.of(
+                        "success", true,
+                        "message", c.getEstado() == 1 ? "Cliente activado correctamente" : "Cliente inactivado correctamente"
+                )))
+                .orElseGet(() -> ResponseEntity.status(404).body(Map.of("success", false, "message", "Cliente no encontrado")));
+    }
+
     @DeleteMapping("/api/eliminar/{id}")
     @ResponseBody
     public ResponseEntity<?> eliminar(@PathVariable Long id) {
         try {
             clienteService.eliminar(id);
-            return ResponseEntity.ok(Map.of("success", true, "message", "Cliente desactivado"));
+            return ResponseEntity.ok(Map.of("success", true, "message", "Cliente eliminado correctamente"));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("success", false, "message", e.getMessage()));
         }
